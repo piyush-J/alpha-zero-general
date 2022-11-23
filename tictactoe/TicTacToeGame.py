@@ -16,7 +16,7 @@ Based on the OthelloGame by Surag Nair.
 """
 class TicTacToeGame(Game):
     def __init__(self, n=3):
-        self.n = n
+        self.n = n # because it is 3x3
 
     def getInitBoard(self):
         # return initial board (numpy board)
@@ -29,16 +29,16 @@ class TicTacToeGame(Game):
 
     def getActionSize(self):
         # return number of actions
-        return self.n*self.n + 1
+        return self.n*self.n + 1 # 9x9 cells + 1 pass
 
     def getNextState(self, board, player, action):
         # if player takes action on board, return next (board,player)
         # action must be a valid move
         if action == self.n*self.n:
-            return (board, -player)
+            return (board, -player) # if pass, return the board and change the player
         b = Board(self.n)
         b.pieces = np.copy(board)
-        move = (int(action/self.n), action%self.n)
+        move = (int(action/self.n), action%self.n) # convert action (1-D) to move (2-D)
         b.execute_move(move, player)
         return (b.pieces, -player)
 
@@ -47,12 +47,12 @@ class TicTacToeGame(Game):
         valids = [0]*self.getActionSize()
         b = Board(self.n)
         b.pieces = np.copy(board)
-        legalMoves =  b.get_legal_moves(player)
+        legalMoves =  b.get_legal_moves(player) # doesn't depend on the player -> just output the legal moves (empty cells)
         if len(legalMoves)==0:
-            valids[-1]=1
+            valids[-1]=1 
             return np.array(valids)
         for x, y in legalMoves:
-            valids[self.n*x+y]=1
+            valids[self.n*x+y]=1 # convert move (2-D) to action (1-D)
         return np.array(valids)
 
     def getGameEnded(self, board, player):
@@ -74,7 +74,7 @@ class TicTacToeGame(Game):
         # return state if player==1, else return -state if player==-1
         return player*board
 
-    def getSymmetries(self, board, pi):
+    def getSymmetries(self, board, pi): # to be add all the symmetrical board states and their corresponding pi to the training data
         # mirror, rotational
         assert(len(pi) == self.n**2+1)  # 1 for pass
         pi_board = np.reshape(pi[:-1], (self.n, self.n))

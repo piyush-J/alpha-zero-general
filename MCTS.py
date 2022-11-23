@@ -38,16 +38,18 @@ class MCTS():
             self.search(canonicalBoard)
 
         s = self.game.stringRepresentation(canonicalBoard)
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.game.getActionSize())]
+        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.game.getActionSize())] 
+        # TODO: can also look at Qsa while making the decision: max Q-value and the max number of time the edge is visited
 
-        if temp == 0:
-            bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
+        if temp == 0: # no randomness
+            bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten() # if temp is 0, take most visited action (break ties randomly)
+            # TODO: Just like above todo, can also look at Qsa while making the decision
             bestA = np.random.choice(bestAs)
             probs = [0] * len(counts)
             probs[bestA] = 1
             return probs
 
-        counts = [x ** (1. / temp) for x in counts]
+        counts = [x ** (1. / temp) for x in counts] # if temp is not 0 (only occurs in beg of training), use the counts to compute a probability distribution
         counts_sum = float(sum(counts))
         probs = [x / counts_sum for x in counts]
         return probs
@@ -110,7 +112,7 @@ class MCTS():
             if valids[a]:
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
-                            1 + self.Nsa[(s, a)])
+                            1 + self.Nsa[(s, a)]) # Q + U
                 else:
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
 

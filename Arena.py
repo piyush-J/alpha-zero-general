@@ -51,7 +51,7 @@ class Arena():
 
             valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
 
-            if valids[action] == 0:
+            if valids[action] == 0: # not possible because MCTS always returns a valid move
                 log.error(f'Action {action} is not valid!')
                 log.debug(f'valids = {valids}')
                 assert valids[action] > 0
