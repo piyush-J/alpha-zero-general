@@ -49,7 +49,7 @@ class TicTacToeGame(Game):
         b.pieces = np.copy(board)
         legalMoves =  b.get_legal_moves(player) # doesn't depend on the player -> just output the legal moves (empty cells)
         if len(legalMoves)==0:
-            valids[-1]=1 
+            valids[-1]=1
             return np.array(valids)
         for x, y in legalMoves:
             valids[self.n*x+y]=1 # convert move (2-D) to action (1-D)
