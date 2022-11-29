@@ -13,8 +13,8 @@ class MCTS():
     This class handles the MCTS tree.
     """
 
-    def __init__(self, game, nnet, args):
-        self.game = game
+    def __init__(self, nnet, args):
+        # self.game = game.get_copy()
         self.nnet = nnet
         self.args = args
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
@@ -25,7 +25,7 @@ class MCTS():
         self.Es = {}  # stores game.getGameEnded ended for board s
         self.Vs = {}  # stores game.getValidMoves for board s
 
-    def getActionProb(self, canonicalBoard, temp=1):
+    def getActionProb(self, game, board, temp=1, verbose=False):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -34,27 +34,27 @@ class MCTS():
             probs: a policy vector where the probability of the ith action is
                    proportional to Nsa[(s,a)]**(1./temp)
         """
-        for i in range(self.args.numMCTSSims):
-            self.search(canonicalBoard)
+        canonicalBoard = game.getCanonicalForm(board)
 
-        s = self.game.stringRepresentation(canonicalBoard)
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.game.getActionSize())] 
-        # TODO: can also look at Qsa while making the decision: max Q-value and the max number of time the edge is visited
+        for _ in range(self.args.numMCTSSims):
+            self.search(game, canonicalBoard, verbose=verbose)
 
-        if temp == 0: # no randomness
-            bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten() # if temp is 0, take most visited action (break ties randomly)
-            # TODO: Just like above todo, can also look at Qsa while making the decision
+        s = game.stringRepresentation(canonicalBoard)
+        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
+
+        if temp == 0:
+            bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
             bestA = np.random.choice(bestAs)
             probs = [0] * len(counts)
             probs[bestA] = 1
             return probs
 
-        counts = [x ** (1. / temp) for x in counts] # if temp is not 0 (only occurs in beg of training), use the counts to compute a probability distribution
+        counts = [x ** (1. / temp) for x in counts]
         counts_sum = float(sum(counts))
         probs = [x / counts_sum for x in counts]
         return probs
 
-    def search(self, canonicalBoard):
+    def search(self, game, canonicalBoard, verbose=False, level=0):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -74,18 +74,26 @@ class MCTS():
             v: the negative of the value of the current canonicalBoard
         """
 
-        s = self.game.stringRepresentation(canonicalBoard)
+        s = game.stringRepresentation(canonicalBoard)
+        # log.info(f"At level {level}\n{s}")
 
         if s not in self.Es:
-            self.Es[s] = self.game.getGameEnded(canonicalBoard, 1)
-        if self.Es[s] != 0:
+            if verbose:
+                log.info(f"Node not yet seen\n{s}")
+            self.Es[s] = game.getGameEnded(canonicalBoard)
+
+        if self.Es[s] != None: # reward
             # terminal node
-            return -self.Es[s]
+            if verbose:
+                log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
+            return self.Es[s]
 
         if s not in self.Ps:
             # leaf node
+            if verbose:
+                log.info(f"Node is leaf node, using NN to predict value for\n{s}")
             self.Ps[s], v = self.nnet.predict(canonicalBoard)
-            valids = self.game.getValidMoves(canonicalBoard, 1)
+            valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
             if sum_Ps_s > 0:
@@ -101,18 +109,18 @@ class MCTS():
 
             self.Vs[s] = valids
             self.Ns[s] = 0
-            return -v
+            return v
 
         valids = self.Vs[s]
         cur_best = -float('inf')
         best_act = -1
 
         # pick the action with the highest upper confidence bound
-        for a in range(self.game.getActionSize()):
+        for a in range(game.getActionSize()-1):
             if valids[a]:
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
-                            1 + self.Nsa[(s, a)]) # Q + U
+                            1 + self.Nsa[(s, a)])
                 else:
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
 
@@ -121,10 +129,14 @@ class MCTS():
                     best_act = a
 
         a = best_act
-        next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
-        next_s = self.game.getCanonicalForm(next_s, next_player)
+        #TODO: see why this is needed - is it because of the recursion? creating a copy because the game is modified in-place?
+        game_copy = game.get_copy()
+        next_s = game_copy.getNextState(canonicalBoard, a)
+        # next_s = self.game.getCanonicalForm(next_s)
+        if verbose:
+            log.info(f"Non-leaf node, considering action {a} resulting in\n{next_s}")
 
-        v = self.search(next_s)
+        v = self.search(game_copy, next_s, level=level+1)
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
@@ -135,4 +147,4 @@ class MCTS():
             self.Nsa[(s, a)] = 1
 
         self.Ns[s] += 1
-        return -v
+        return v

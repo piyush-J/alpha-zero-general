@@ -8,7 +8,7 @@ from random import shuffle
 import numpy as np
 from tqdm import tqdm
 
-from Arena import Arena
+from Arena import PlanningArena
 from MCTS import MCTS
 
 log = logging.getLogger(__name__)
@@ -25,13 +25,52 @@ class Coach():
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
-        self.mcts = MCTS(self.game, self.nnet, self.args)
+        self.mcts = MCTS(self.nnet, self.args)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
+    # def executeEpisode(self):
+    #     """
+    #     This function executes one episode of self-play, starting with player 1.
+    #     As the game is played, each turn is added as a training example to
+    #     trainExamples. The game is played till the game ends. After the game
+    #     ends, the outcome of the game is used to assign values to each example
+    #     in trainExamples.
+
+    #     It uses a temp=1 if episodeStep < tempThreshold, and thereafter
+    #     uses temp=0.
+
+    #     Returns:
+    #         trainExamples: a list of examples of the form (canonicalBoard, currPlayer, pi,v)
+    #                        pi is the MCTS informed policy vector, v is +1 if
+    #                        the player eventually won the game, else -1.
+    #     """
+    #     trainExamples = []
+    #     board = self.game.getInitBoard()
+    #     self.curPlayer = 1
+    #     episodeStep = 0
+
+    #     while True:
+    #         episodeStep += 1
+    #         canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
+    #         temp = int(episodeStep < self.args.tempThreshold)
+
+    #         pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
+    #         sym = self.game.getSymmetries(canonicalBoard, pi)
+    #         for b, p in sym:
+    #             trainExamples.append([b, self.curPlayer, p, None])
+
+    #         action = np.random.choice(len(pi), p=pi)
+    #         board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
+
+    #         r = self.game.getGameEnded(board, self.curPlayer)
+
+    #         if r != 0:
+    #             return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
+
     def executeEpisode(self):
         """
-        This function executes one episode of self-play, starting with player 1.
+        This function executes one episode of self-play.
         As the game is played, each turn is added as a training example to
         trainExamples. The game is played till the game ends. After the game
         ends, the outcome of the game is used to assign values to each example
@@ -46,27 +85,32 @@ class Coach():
                            the player eventually won the game, else -1.
         """
         trainExamples = []
-        board = self.game.getInitBoard()
-        self.curPlayer = 1
+        game = self.game.get_copy()
+        # board = self.game.getInitBoard()
+        board = game.getInitBoard()
         episodeStep = 0
 
         while True:
             episodeStep += 1
-            canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-            sym = self.game.getSymmetries(canonicalBoard, pi) # symmetries of the board and the pi vector
+            # log.info(f"Looking for next action on board\n{canonicalBoard}")
+
+            pi = self.mcts.getActionProb(game, board, temp=temp)
+            canonicalBoard = game.getCanonicalForm(board)
+            sym = game.getSymmetries(canonicalBoard, pi)
             for b, p in sym:
-                trainExamples.append([b, self.curPlayer, p, None])
+                trainExamples.append([b, p, None])
 
-            action = np.random.choice(len(pi), p=pi) # choose an action based on the pi vector 
-            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
+            action = np.random.choice(len(pi), p=pi)
+            # log.info(f"Taking action {action}")
+            board = game.getNextState(board, action)
 
-            r = self.game.getGameEnded(board, self.curPlayer)
+            r = game.getGameEnded(board)
 
-            if r != 0: # game ended in a win or a draw, in case of win the current player is the loser since the getNextState() function already switched the player
-                return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
+            if r:
+                # log.info(f"Final board\n{board} with reward {r}")
+                return [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
 
     def learn(self):
         """
@@ -85,7 +129,7 @@ class Coach():
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
                 for _ in tqdm(range(self.args.numEps), desc="Self Play"):
-                    self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree so that we create a new search tree with a new policy and value network
+                    self.mcts = MCTS(self.nnet, self.args)  # reset search tree
                     iterationTrainExamples += self.executeEpisode()
 
                 # save the iteration examples to the history 
@@ -99,33 +143,55 @@ class Coach():
             # NB! the examples were collected using the model from the previous iteration, so (i-1)  
             self.saveTrainExamples(i - 1)
 
-            # shuffle examples before training
-            trainExamples = []
-            for e in self.trainExamplesHistory:
-                trainExamples.extend(e)
-            shuffle(trainExamples)
+            trainExamples, perc = self.prepareTrainExamples()
 
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.game, self.pnet, self.args)
+            pmcts = MCTS(self.pnet, self.args)
 
             self.nnet.train(trainExamples)
-            nmcts = MCTS(self.game, self.nnet, self.args)
+            nmcts = MCTS(self.nnet, self.args)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)), # functions that takes board as input, return action
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game) 
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+            # arena = PlanningArena(lambda x: np.argmax(pmcts.getActionProb(x, verbose=True, temp=0)),
+            #                         lambda x: np.argmax(nmcts.getActionProb(x, verbose=True, temp=0)), self.game, perc)
+            arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
+                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc)#, display=print)
+            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
-            log.info('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
-            if pwins + nwins == 0 or float(nwins) / (pwins + nwins) < self.args.updateThreshold:
+            log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
+            if nrewards == prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
                 log.info('REJECTING NEW MODEL')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:
                 log.info('ACCEPTING NEW MODEL')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+
+    def prepareTrainExamples(self):
+        # Ranked reward: we replace the actual reward with 0 or 1, depending on whether
+        # that reward is smaller/larger than the 75 percentile of all rewards.
+        
+        # compute .75 percentile for the last iteration
+        iterationExamples = self.trainExamplesHistory[-1]
+        rew = [e[2] for e in iterationExamples] 
+        # mean, min, std and max of the rewards
+        log.info(f"Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
+        perc = np.percentile(rew, 75)
+        log.info(f"Percentile is {perc}")
+
+        trainExamples = []
+        for e in self.trainExamplesHistory:
+            trainExamples.extend(e)
+
+        # compute the ranked reward for all training examples (not only the last iteration)
+        trainExamples = [(np.where(e[0] != 0, 1, 0), e[1], 1 if e[2]>perc else 0) for e in trainExamples]
+        
+        # shuffle examples before training
+        shuffle(trainExamples)
+
+        return trainExamples, perc
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'
