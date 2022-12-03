@@ -132,7 +132,7 @@ class PlanningArena():
         game = self.game.get_copy()
         board = game.getInitBoard()
         it = 0
-        while game.getGameEnded(board) == None: # returns the reward if the game is over, else None
+        while game.getGameEnded(board) == 0: # returns the reward if the game is over, else None
             it += 1
             if verbose:
                 assert self.display

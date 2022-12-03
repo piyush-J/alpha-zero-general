@@ -41,6 +41,7 @@ class MCTS():
 
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
+        # print(f"counts: {counts}")
 
         if temp == 0:
             bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
@@ -82,17 +83,17 @@ class MCTS():
                 log.info(f"Node not yet seen\n{s}")
             self.Es[s] = game.getGameEnded(canonicalBoard)
 
-        if self.Es[s] != None: # reward
+        if self.Es[s] != 0 or canonicalBoard.is_giveup(): # TODO: is_giveup condition + winning condition? Es only calculated once and the particular state wont be the end state for every formula
             # terminal node
             if verbose:
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
-            return self.Es[s]
+            return self.Es[s] - level*0.9 # penalizing for number of steps
 
         if s not in self.Ps:
             # leaf node
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
-            self.Ps[s], v = self.nnet.predict(canonicalBoard)
+            self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])

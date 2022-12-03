@@ -13,7 +13,7 @@ class PlanningGame(Game):
         self.legal_actions = [i for i in range(machines * timesteps)]
         self.current_domainaction = 0
 
-    def _make_representation(self):
+    def _make_representation(self): # TODO: smt
         return PlanningRepresentation(self.machines,
                                         self.timesteps, 
                                         self.domainactions, 
@@ -21,7 +21,7 @@ class PlanningGame(Game):
                                         list(np.copy(self.legal_actions)),
                                         self.current_domainaction)
 
-    def get_copy(self):
+    def get_copy(self): # TODO: smt
         c = PlanningGame(self.machines, 
                             self.timesteps,
                             self.domainactions,

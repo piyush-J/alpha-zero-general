@@ -15,14 +15,17 @@ Based on the board for the game of Othello by Eric P. Nichols.
 
 '''
 from z3 import *
+import numpy as np
 
 # from bkcharts.attributes import color
 class Board(): # Keep its name as Board for now; may call it goal later
 
-    def __init__(self, formulaPath):
+    def __init__(self, formulaPath, moves_str):
         "Set up initial board configuration."
 
         self.fPath = formulaPath
+        # print(formulaPath)
+        self.moves_str = moves_str
         # Create the empty board array.
         self.formula = z3.parse_smt2_file(formulaPath)
         self.curGoal = z3.Goal()
@@ -33,8 +36,17 @@ class Board(): # Keep its name as Board for now; may call it goal later
     # def __getitem__(self, index):
     #     return self.pieces[index]
 
+    def __str__(self): # when you print board object
+        return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}"
+
+    def is_done(self):
+        return self.is_win() or self.is_giveup()
+
     def get_legal_moves(self):
-        return ["simplify", "smt"]
+        if not self.is_done():
+            return set([i for i in range(len(self.moves_str))])
+        else:
+            return set()
 
     # Seems irrelevant
     # def has_legal_moves(self):
@@ -49,7 +61,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         numAssert = p1(self.curGoal)
         p2 = Probe('num-consts')
         numConst = p2(self.curGoal)
-        return [numAssert, numConst]
+        return np.array([numAssert, numConst])
 
     def is_win(self):
         # print(str(self.curGoal))
@@ -65,12 +77,12 @@ class Board(): # Keep its name as Board for now; may call it goal later
         """Perform the given move on the board;
         """
         # print(type(self.curGoal))
-        t = Tactic(move)
+        t = Tactic(self.moves_str[move])
         # print("Initial goal")
         # print(self.curGoal)
         outGoal = t(self.curGoal)
         self.curGoal = z3.Goal()
-        self.curGoal.add(outGoal.as_expr())
+        self.curGoal.add(outGoal.as_expr()) 
         # print(type(self.curGoal))
         # print("after the move: " + move)
         # print(self.curGoal)
