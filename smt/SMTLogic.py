@@ -15,14 +15,20 @@ Based on the board for the game of Othello by Eric P. Nichols.
 
 '''
 from z3 import *
+import numpy as np
+from copy import copy
+
+STEP_UPPER_BOUND = 2
 
 # from bkcharts.attributes import color
 class Board(): # Keep its name as Board for now; may call it goal later
 
-    def __init__(self, formulaPath):
+    def __init__(self, formulaPath, moves_str):
         "Set up initial board configuration."
 
         self.fPath = formulaPath
+        # print(formulaPath)
+        self.moves_str = moves_str
         # Create the empty board array.
         self.formula = z3.parse_smt2_file(formulaPath) # maynot need to store this
         self.curGoal = z3.Goal()
@@ -34,8 +40,17 @@ class Board(): # Keep its name as Board for now; may call it goal later
     # def __getitem__(self, index):
     #     return self.pieces[index]
 
+    def __str__(self): # when you print board object
+        return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}"
+
+    def is_done(self):
+        return self.is_win() or self.is_giveup()
+
     def get_legal_moves(self):
-        return ["simplify", "smt"]
+        if not self.is_done():
+            return set([i for i in range(len(self.moves_str))])
+        else:
+            return set()
 
     # Seems irrelevant
     # def has_legal_moves(self):
@@ -50,27 +65,30 @@ class Board(): # Keep its name as Board for now; may call it goal later
         numAssert = p1(self.curGoal)
         p2 = Probe('num-consts')
         numConst = p2(self.curGoal)
-        return [numAssert, numConst]
+        return np.array([numAssert, numConst])
 
     def is_win(self):
         return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
 
     def is_giveup(self):
-        return self.step > 2 # change this number to a constant variable later
+        return self.step > STEP_UPPER_BOUND  # change this number to a constant variable later
 
     # current
     def execute_move(self, move):
-        """Perform the given move on the board;
+        """Perform the given move on the board; ASK Piyush: do we change this to return a new board?
         """
         # print(type(self.curGoal))
-        t = Tactic(move)
+        result = copy(self)
+        t = Tactic(self.moves_str[move])
         # print("Initial goal")
         # print(self.curGoal)
-        outGoal = t(self.curGoal)
-        self.curGoal = z3.Goal()
-        self.curGoal.add(outGoal.as_expr()) # try outGoal[0]
+        output = t(self.curGoal)
+        result.curGoal = z3.Goal()
+        result.curGoal.add(output.as_expr()) # try outGoal[0]
         # print(type(self.curGoal))
         # print("after the move: " + move)
         # print(self.curGoal)
-        self.step = self.step + 1
-        self.priorAction.append(move)
+        result.step = result.step + 1
+
+        result.priorAction.append(move)
+        return result

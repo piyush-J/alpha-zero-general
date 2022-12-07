@@ -25,7 +25,7 @@ class PlanningRepresentation:
         machine, time = move
         return machine + (self.machines * time)
 
-    def _valid_action(self, action, domainaction):
+    def _valid_action(self, action, domainaction): #TODO: smt
         machine, time = self._action_to_move(action)
         duration = domainaction.duration
         if time + duration < self.timesteps:
@@ -35,7 +35,7 @@ class PlanningRepresentation:
             return True
         return False
 
-    def is_done(self):
+    def is_done(self): #TODO: smt
         return self.current_domainaction == len(self.domainactions) # all machines are scheduled
 
     def get_legal_moves(self):

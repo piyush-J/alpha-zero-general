@@ -100,7 +100,7 @@ class Coach():
             canonicalBoard = game.getCanonicalForm(board)
             sym = game.getSymmetries(canonicalBoard, pi)
             for b, p in sym:
-                trainExamples.append([b, p, None])
+                trainExamples.append([b.get_state(), p, None]) # store the embedding of the board
 
             action = np.random.choice(len(pi), p=pi)
             # log.info(f"Taking action {action}")
@@ -108,7 +108,7 @@ class Coach():
 
             r = game.getGameEnded(board)
 
-            if r:
+            if r != 0:
                 # log.info(f"Final board\n{board} with reward {r}")
                 return [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
 
