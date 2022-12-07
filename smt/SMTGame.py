@@ -4,6 +4,7 @@ sys.path.append('..')
 from Game import Game
 from SMTLogic import Board
 import numpy as np
+import glob, os
 from z3 import * # may not need
 
 """
@@ -11,11 +12,20 @@ Game class implementation for SMT solving.
 """
 
 class SMTGame(Game):
-    def __init__(self, formulaPath = "example/qfniaex.smt2"):
-        self.fPath = formulaPath # now only for one formula; later change to benchmark
+    def __init__(self, benchmarkPath = "example/", ext = "smt2"):
+        self.bPath = benchmarkPath # now only for one formula; later change to benchmark
+        os.chdir(self.bPath)
+        self.formulaLst = []
+        for f in glob.glob("*."+ ext):
+            self.formulaLst.append(f)
+        self.fSize = len(self.formulaLst)
+        if self.fSize < 1: raise Exception("No smt file in the folder")
+        self.nextFmID = 0
 
     def getInitBoard(self):
-        bd = Board(self.fPath) # store as a member for now
+        bd = Board(self.formulaLst[self.nextFmID])
+        if self.nextFmID == self.fSize - 1: self.nextFmID = 0
+        else: self.nextFmID = self.nextFmID + 1
         return bd # return the board for now
 
     def getEmbedding(self, board):

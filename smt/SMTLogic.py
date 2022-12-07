@@ -24,10 +24,11 @@ class Board(): # Keep its name as Board for now; may call it goal later
 
         self.fPath = formulaPath
         # Create the empty board array.
-        self.formula = z3.parse_smt2_file(formulaPath)
+        self.formula = z3.parse_smt2_file(formulaPath) # maynot need to store this
         self.curGoal = z3.Goal()
         self.curGoal.add(self.formula)
         self.step = 0 # number of times a tactic as already been applied
+        self.priorAction = []
     # Seems not relevant: let's see
     # add [][] indexer syntax to the Board
     # def __getitem__(self, index):
@@ -52,15 +53,12 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return [numAssert, numConst]
 
     def is_win(self):
-        # print(str(self.curGoal))
-        result = str(self.curGoal) == "[]"
-        # print(result)
-        return result
+        return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
 
     def is_giveup(self):
         return self.step > 2 # change this number to a constant variable later
 
-    # current 
+    # current
     def execute_move(self, move):
         """Perform the given move on the board;
         """
@@ -70,8 +68,9 @@ class Board(): # Keep its name as Board for now; may call it goal later
         # print(self.curGoal)
         outGoal = t(self.curGoal)
         self.curGoal = z3.Goal()
-        self.curGoal.add(outGoal.as_expr())
+        self.curGoal.add(outGoal.as_expr()) # try outGoal[0]
         # print(type(self.curGoal))
         # print("after the move: " + move)
         # print(self.curGoal)
         self.step = self.step + 1
+        self.priorAction.append(move)

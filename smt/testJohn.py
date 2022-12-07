@@ -4,6 +4,7 @@ from SMTGame import SMTGame
 def main():
     g = SMTGame() # intialize a SMT game; currently only about one formula
     b = g.getInitBoard()
+    print("File: " + b.fPath)
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
     print(g.getGameEnded(b))
     print("Current goal state representation: [#assertions, #constants]")
@@ -22,8 +23,10 @@ def main():
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
     print(g.getGameEnded(b))
     bd = g.getInitBoard() # a new instance for give up
+    print("File: " + bd.fPath)
     for i in range (3):
         bd = g.getNextState(bd, "simplify")
+        print(bd.priorAction)
     print("After applying 3 (limit) times of 'simplify' to a new instance of the formula")
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
     print(g.getGameEnded(bd))
