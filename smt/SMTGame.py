@@ -12,14 +12,13 @@ Game class implementation for SMT solving.
 """
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath = "smt/example/", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
+    def __init__(self, benchmarkPath = "/Users/zhengyanglumacmini/Desktop/alpha-zero-general/smt/example/", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
         self.bPath = benchmarkPath
         self.ext = ext
         os.chdir(self.bPath)
         self.formulaLst = []
         for f in glob.glob("*."+ self.ext):
             self.formulaLst.append(f)
-        print(self.formulaLst)
         self.fSize = len(self.formulaLst)
         if self.fSize < 1: raise Exception("No smt file in the folder")
         self.curFmID = -1 # may not need
