@@ -12,7 +12,7 @@ Game class implementation for SMT solving.
 """
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath = "/Users/zhengyanglumacmini/Desktop/alpha-zero-general/smt/example/", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
+    def __init__(self, benchmarkPath = "/Users/zhengyanglu/Desktop/alpha-zero-general/smt/example/", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
         self.bPath = benchmarkPath
         self.ext = ext
         os.chdir(self.bPath)
@@ -26,10 +26,10 @@ class SMTGame(Game):
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later
 
-    def _make_representation(self): # TODO: smt
-        return Board(self.formulaLst[self.curFmID], self.moves_str)
+    # def _make_representation(self): # TODO: smt
+    #     return Board(self.formulaLst[self.curFmID], self.moves_str)
 
-    def get_copy(self): # TODO: check if this is necessary later
+    def get_copy(self): # TODO: check if this is necessary later #Ask Piyush: where it would be used? just get a copy
         return SMTGame(self.bPath, self.ext, self.moves_str)
 
     def getInitBoard(self): # Ask Piyush about how to set numIters in main.py
@@ -73,6 +73,7 @@ class SMTGame(Game):
     def getGameEnded(self, board):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
         if board.is_win():
+            # get time from the board
             return 1 # this can be related to time
         if board.is_giveup():
             return -5 # Ask Piyush: why -5?
