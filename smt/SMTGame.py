@@ -5,6 +5,7 @@ from Game import Game
 from .SMTLogic import Board
 import numpy as np
 import glob, os
+from copy import copy
 from z3 import * # may not need
 
 """
@@ -29,8 +30,8 @@ class SMTGame(Game):
     # def _make_representation(self): # TODO: smt
     #     return Board(self.formulaLst[self.curFmID], self.moves_str)
 
-    def get_copy(self): # TODO: check if this is necessary later #Ask Piyush: where it would be used? just get a copy
-        return SMTGame(self.bPath, self.ext, self.moves_str)
+    def get_copy(self): # TODO: check if this is necessary later
+        return copy(self) # Check how the ids will be used in copies...
 
     def getInitBoard(self): # Ask Piyush about how to set numIters in main.py
         bd = Board(self.formulaLst[self.nextFmID], self.moves_str)

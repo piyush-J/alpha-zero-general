@@ -35,6 +35,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.curGoal.add(self.formula)
         self.step = 0 # number of times a tactic as already been applied
         self.priorAction = []
+        self.failed = False
     # Seems not relevant: let's see
     # add [][] indexer syntax to the Board
     # def __getitem__(self, index):
@@ -71,11 +72,11 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
 
     def is_giveup(self):
-        return self.step > STEP_UPPER_BOUND  # change this number to a constant variable later
+        return self.step > STEP_UPPER_BOUND
 
     # current
     def execute_move(self, move):
-        """Perform the given move on the board; ASK Piyush: do we change this to return a new board?
+        """Perform the given move on the board
         """
         # print(type(self.curGoal))
         result = copy(self)
