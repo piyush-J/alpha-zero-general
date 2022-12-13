@@ -2,28 +2,43 @@
 from smt.SMTGame import SMTGame
 
 def main():
-    g = SMTGame(formulaPath = "smt/example/qfniaex.smt2") # intialize a SMT game; currently only about one formula
-    b = g.getInitBoard()
+
+    g = SMTGame()
+    b0 = g.getInitBoard()
+    print(b0.moves_str)
+    print("File: " + b0.fPath)
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
-    print(g.getGameEnded(b))
-    print("Current goal state representation: [#assertions, #constants]")
-    print(g.getEmbedding(b))
+    print(g.getGameEnded(b0))
+    print("Current goal embedding")
+    print(g.getEmbedding(b0))
+    print("Current goal manual state representation: [#assertions, #constants]")
+    print(g.getManualEmbedding(b0))
     print("Next legal moves:")
-    moveLst = g.getValidMoves(b)
+    moveLst = g.getValidMoves(b0)
     print(moveLst)
-    nextMove = moveLst[0]
-    print("Apply tactic: " + b.moves_str[nextMove])
-    g.getNextState(b, nextMove)
+    # nextMove = moveLst[0] # Talk with Piyush: this way of referring to a tactic is incorrect
+    nextMove = 0
+    print("Apply tactic: " + b0.moves_str[nextMove])
+    print(b0.moves_str)
+    b1 = g.getNextState(b0, nextMove)
+
+    print("rlimit for this tactic application")
+    print(b1.accRLimit)
+
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
-    print(g.getGameEnded(b))
-    nextMove = moveLst[1]
-    print("Apply tactic: " + b.moves_str[nextMove])
-    b = g.getNextState(b, nextMove)
+    print(g.getGameEnded(b1))
+    nextMove = 1
+    print("Apply tactic: " + b1.moves_str[nextMove])
+    b2 = g.getNextState(b1, nextMove)
+    print("rlimit for this tactic application")
+    print(b2.accRLimit)
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
-    print(g.getGameEnded(b))
+    print(g.getGameEnded(b2))
     bd = g.getInitBoard() # a new instance for give up
-    for _ in range (3):
-        bd = g.getNextState(bd, b.moves_str.index("simplify"))
+    print("File: " + bd.fPath)
+    for i in range (3):
+        bd = g.getNextState(bd, 0)
+        print(bd.priorAction)
     print("After applying 3 (limit) times of 'simplify' to a new instance of the formula")
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
     print(g.getGameEnded(bd))

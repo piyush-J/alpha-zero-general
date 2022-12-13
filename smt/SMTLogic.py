@@ -16,8 +16,17 @@ Based on the board for the game of Othello by Eric P. Nichols.
 '''
 from z3 import *
 import numpy as np
+from copy import copy
 
-# from bkcharts.attributes import color
+STEP_UPPER_BOUND = 2
+
+def get_rlimit(tmpSolver):
+    stats = tmpSolver.statistics()
+    for i in range(len(stats)):
+        if stats[i][0] == 'rlimit count':
+            return stats[i][1]
+    return 0
+
 class Board(): # Keep its name as Board for now; may call it goal later
 
     def __init__(self, formulaPath, moves_str):
@@ -27,14 +36,19 @@ class Board(): # Keep its name as Board for now; may call it goal later
         # print(formulaPath)
         self.moves_str = moves_str
         # Create the empty board array.
-        self.formula = z3.parse_smt2_file(formulaPath)
-        self.curGoal = z3.Goal()
-        self.curGoal.add(self.formula)
+        self.formula = z3.parse_smt2_file(formulaPath) # maynot need to store this
+        self.initGoal = z3.Goal()
+        self.initGoal.add(self.formula)
+        self.curGoal = self.initGoal
         self.step = 0 # number of times a tactic as already been applied
-    # Seems not relevant: let's see
-    # add [][] indexer syntax to the Board
-    # def __getitem__(self, index):
-    #     return self.pieces[index]
+        self.priorAction = []
+        self.failed = False
+
+    def __str__(self): # when you print board object
+        return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}"
+
+    def is_done(self):
+        return self.is_win() or self.is_giveup()
 
     def __str__(self): # when you print board object
         return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}"
@@ -48,15 +62,10 @@ class Board(): # Keep its name as Board for now; may call it goal later
         else:
             return set()
 
-    # Seems irrelevant
-    # def has_legal_moves(self):
-    #     for y in range(self.n):
-    #         for x in range(self.n):
-    #             if self[x][y]==0:
-    #                 return True
-    #     return False
+    def get_cur_goal_str(self):
+        return str(self.curGoal)
 
-    def get_state(self):
+    def get_manual_state(self):
         p1 = Probe('size')
         numAssert = p1(self.curGoal)
         p2 = Probe('num-consts')
@@ -64,26 +73,44 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return np.array([numAssert, numConst])
 
     def is_win(self):
-        # print(str(self.curGoal))
-        result = str(self.curGoal) == "[]"
-        # print(result)
-        return result
+        return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
+
+    def is_fail(self):
+        return self.failed
 
     def is_giveup(self):
-        return self.step > 2 # change this number to a constant variable later
+        return self.step > STEP_UPPER_BOUND
 
-    # current 
+
     def execute_move(self, move):
-        """Perform the given move on the board;
+        """Perform the given move on the board
         """
         # print(type(self.curGoal))
-        t = Tactic(self.moves_str[move])
+        result = copy(self)
+        result.priorAction.append(self.moves_str[move])
+
+        tCombined = Tactic(result.priorAction[0])
+        for tStr in result.priorAction[1:]:
+            t = Tactic(tStr)
+            tCombined = Then(tCombined, t)
+        tmp = z3.Solver()
+        rlimit_before = get_rlimit(tmp)
+        try:
+            tResult = tCombined(self.initGoal)
+            rlimit_after = get_rlimit(tmp)
+            result.accRLimit = rlimit_after - rlimit_before
+            assert(len(tResult) == 1)
+            result.curGoal = tResult[0]
+        except Z3Exception:
+            result.failed = True
+        # t = Tactic(self.moves_str[move])
         # print("Initial goal")
         # print(self.curGoal)
-        outGoal = t(self.curGoal)
-        self.curGoal = z3.Goal()
-        self.curGoal.add(outGoal.as_expr()) 
+        # output = t(self.curGoal)
+        # result.curGoal = z3.Goal()
+        # result.curGoal.add(output.as_expr()) # try outGoal[0]
         # print(type(self.curGoal))
         # print("after the move: " + move)
         # print(self.curGoal)
-        self.step = self.step + 1
+        result.step = result.step + 1
+        return result
