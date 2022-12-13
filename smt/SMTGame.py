@@ -13,7 +13,7 @@ Game class implementation for SMT solving.
 """
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath = "/Users/zhengyanglu/Desktop/alpha-zero-general/smt/example/", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
+    def __init__(self, benchmarkPath = "/Users/zhengyanglumacmini/Desktop/alpha-zero-general/smt/example", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
         self.bPath = benchmarkPath
         self.ext = ext
         os.chdir(self.bPath)
@@ -33,6 +33,10 @@ class SMTGame(Game):
     def get_copy(self): # TODO: check if this is necessary later
         return copy(self) # Check how the ids will be used in copies...
 
+
+    def getBenchmarkSize(self):
+        return self.fSize
+
     def getInitBoard(self): # Ask Piyush about how to set numIters in main.py
         bd = Board(self.formulaLst[self.nextFmID], self.moves_str)
         self.curFmID = self.nextFmID
@@ -40,8 +44,11 @@ class SMTGame(Game):
         else: self.nextFmID = self.nextFmID + 1
         return bd # return the board for now - - made all changes accordingly - donot change
 
+    def getManualEmbedding(self, board):
+        return board.get_manual_state()
+
     def getEmbedding(self, board):
-        return board.get_state()
+        return board.get_cur_goal_str()
 
     def getBoardSize(self):#, board):
         # return len(board.get_state())
@@ -52,6 +59,7 @@ class SMTGame(Game):
         # return len(board.get_legal_moves())
         return self.action_size + 1 # TODO: check if +1 is necessary
 
+    # make sure with Piyush this won't be called on already ended board
     def getNextState(self, board, action):
         # if takes action on board, return next board
         # action must be a valid move
@@ -73,6 +81,8 @@ class SMTGame(Game):
 
     def getGameEnded(self, board):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
+        if board.is_fail():
+            return -3
         if board.is_win():
             # get time from the board
             return 1 # this can be related to time
