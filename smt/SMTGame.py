@@ -4,6 +4,8 @@ sys.path.append('..')
 from Game import Game
 from .SMTLogic import Board
 import numpy as np
+import glob, os
+from copy import copy
 from z3 import * # may not need
 
 """
@@ -11,42 +13,61 @@ Game class implementation for SMT solving.
 """
 
 class SMTGame(Game):
-    def __init__(self, formulaPath = "smt/example/qfniaex.smt2", moves_str=("simplify", "smt")):
-        self.fPath = formulaPath # now only for one formula; later change to benchmark
+    def __init__(self, benchmarkPath = "/Users/zhengyanglumacmini/Desktop/alpha-zero-general/smt/example", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
+        self.bPath = benchmarkPath
+        self.ext = ext
+        os.chdir(self.bPath)
+        self.formulaLst = []
+        for f in glob.glob("*."+ self.ext):
+            self.formulaLst.append(f)
+        self.fSize = len(self.formulaLst)
+        if self.fSize < 1: raise Exception("No smt file in the folder")
+        self.curFmID = -1 # may not need
+        self.nextFmID = 0
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later
 
-    def _make_representation(self): # TODO: smt
-        return Board(self.fPath, self.moves_str)
+    # def _make_representation(self): # TODO: smt
+    #     return Board(self.formulaLst[self.curFmID], self.moves_str)
 
     def get_copy(self): # TODO: check if this is necessary later
-        return SMTGame(self.fPath, self.moves_str)
+        return copy(self) # Check how the ids will be used in copies...
 
-    def getInitBoard(self):
-        bd = Board(self.fPath, self.moves_str) # store as a member for now
-        return bd # return the board for now - made all changes accordingly - donot change
+
+    def getBenchmarkSize(self):
+        return self.fSize
+
+    def getInitBoard(self): # Ask Piyush about how to set numIters in main.py
+        bd = Board(self.formulaLst[self.nextFmID], self.moves_str)
+        self.curFmID = self.nextFmID
+        if self.nextFmID == self.fSize - 1: self.nextFmID = 0
+        else: self.nextFmID = self.nextFmID + 1
+        return bd # return the board for now - - made all changes accordingly - donot change
+
+    def getManualEmbedding(self, board):
+        return board.get_manual_state()
 
     def getEmbedding(self, board):
-        return board.get_state()
+        return board.get_cur_goal_str()
 
-    def getBoardSize(self):#, board): 
+    def getBoardSize(self):#, board):
         # return len(board.get_state())
         return 2
 
     def getActionSize(self):
         # return number of actions
-        # return len(board.get_legal_moves()) 
+        # return len(board.get_legal_moves())
         return self.action_size + 1 # TODO: check if +1 is necessary
 
+    # make sure with Piyush this won't be called on already ended board
     def getNextState(self, board, action):
         # if takes action on board, return next board
         # action must be a valid move
-        b2 = self._make_representation()
-        b2.curGoal = board.curGoal
-        b2.step = board.step
-        b2.execute_move(action) # we need to execute the move on a copy otherwise the original board will be changed in MCTS recursion
-        return b2
-    
+        # b2 = self._make_representation()
+        # b2.curGoal = board.curGoal
+        # b2.step = board.step
+        return board.execute_move(action) # we need to execute the move on a copy otherwise the original board will be changed in MCTS recursion
+
     def getValidMoves(self, board):
         valids = [0]*self.getActionSize()
         legal_moves = board.get_legal_moves()
@@ -60,12 +81,15 @@ class SMTGame(Game):
 
     def getGameEnded(self, board):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
+        if board.is_fail():
+            return -3
         if board.is_win():
+            # get time from the board
             return 1 # this can be related to time
         if board.is_giveup():
-            return -5
+            return -5 # Ask Piyush: why -5?
         return 0 # relate to resources later # game not over yet
-    
+
     def getCanonicalForm(self, board): # TODO
         """
         Input:
