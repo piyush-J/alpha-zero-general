@@ -15,7 +15,7 @@ Game class implementation for SMT solving.
 MODEL_OUT_FEATURES = 768
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath = "smt/example", ext = "smt2", moves_str=("simplify", "smt")): 
+    def __init__(self, benchmarkPath = "smt/example/qf_nia/AProVE/test", ext = "smt2", moves_str=("simplify", "smt", "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")): 
         self.bPath = benchmarkPath
         self.ext = ext
         # os.chdir(self.bPath) # removed this so that you can directly use the relative path smt/example in glob.glob
@@ -39,12 +39,12 @@ class SMTGame(Game):
     def getBenchmarkSize(self):
         return self.fSize
 
-    def getInitBoard(self): 
+    def getInitBoard(self):
         bd = Board(self.formulaLst[self.nextFmID], self.moves_str)
         self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
-        return bd # return the board 
+        return bd # return the board
 
     def getManualEmbedding(self, board):
         return board.get_manual_state()
@@ -87,7 +87,7 @@ class SMTGame(Game):
         if board.is_fail():
             return -1 # because of tanh activation
         if board.is_win():
-            return 1 - 0.01*board.accRLimit 
+            return 1 - 0.01*board.accRLimit
         if board.is_giveup():
             return -1
         return 0 # relate to resources later # game not over yet
