@@ -38,7 +38,9 @@ def main():
     print("File: " + bd.fPath)
     for i in range (3):
         bd = g.getNextState(bd, 0)
-        print(bd.priorAction)
+        print(g.getEmbedding(bd))
+        print(bd.priorActions)
+        print(bd)
     print("After applying 3 (limit) times of 'simplify' to a new instance of the formula")
     print("Current game status: 1 -- solved; 0 -- unsolved; (-1) -- give_up")
     print(g.getGameEnded(bd))

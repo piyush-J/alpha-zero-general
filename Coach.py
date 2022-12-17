@@ -20,8 +20,9 @@ class Coach():
     in Game and NeuralNet. args are specified in main.py.
     """
 
-    def __init__(self, game, nnet, args):
+    def __init__(self, game, game_validation, nnet, args):
         self.game = game
+        self.game_validation = game_validation
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
@@ -157,8 +158,8 @@ class Coach():
             # arena = PlanningArena(lambda x: np.argmax(pmcts.getActionProb(x, verbose=True, temp=0)),
             #                         lambda x: np.argmax(nmcts.getActionProb(x, verbose=True, temp=0)), self.game, perc)
             arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc)#, display=print)
-            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
+                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game_validation, perc, display=print)
+            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=True)
 
             log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
             if nrewards == prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
@@ -177,7 +178,7 @@ class Coach():
         iterationExamples = self.trainExamplesHistory[-1]
         rew = [e[2] for e in iterationExamples] 
         # mean, min, std and max of the rewards
-        log.info(f"Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
+        log.info(f"REWARDS - Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
         perc = np.percentile(rew, 75)
         log.info(f"Percentile is {perc}")
 

@@ -1,5 +1,5 @@
 import logging
-
+import numpy as np
 import coloredlogs
 
 from Coach import Coach
@@ -37,7 +37,8 @@ args = dotdict({
 
 def main():
     log.info(f'Loading {SMTGame.__name__}...')
-    g = SMTGame()
+    g = SMTGame(benchmarkPath = "smt/example")
+    g_val = SMTGame(benchmarkPath = "smt/example")
 
     log.info('Loading %s...', snn.__name__)
     nnet = snn(g)
@@ -49,7 +50,7 @@ def main():
         log.warning('Not loading a checkpoint!')
 
     log.info('Loading the Coach...')
-    c = Coach(g, nnet, args)
+    c = Coach(g, g_val, nnet, args)
 
     if args.load_model:
         log.info("Loading 'trainExamples' from file...")
@@ -58,6 +59,8 @@ def main():
     log.info('Starting the learning process 🎉')
     c.learn()
 
+    accRlimit_all = np.array(g.accRlimit_all)
+    print(f"min accRlimit_all: {np.min(accRlimit_all)}, max accRlimit_all: {np.max(accRlimit_all)}, mean accRlimit_all: {np.mean(accRlimit_all)}, std accRlimit_all: {np.std(accRlimit_all)}")
 
 if __name__ == "__main__":
     main()

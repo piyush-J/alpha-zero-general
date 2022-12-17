@@ -134,13 +134,15 @@ class PlanningArena():
         it = 0
         while game.getGameEnded(board) == 0: # returns the reward if the game is over, else None
             it += 1
+            # action = agent(game.getCanonicalForm(board))
+            action = agent(game, board)
+            valids = game.getValidMoves(game.getCanonicalForm(board))
+
             if verbose:
                 assert self.display
                 print("Turn ", str(it), "Player ", str(agent))
                 self.display(board)
-            # action = agent(game.getCanonicalForm(board))
-            action = agent(game, board)
-            valids = game.getValidMoves(game.getCanonicalForm(board))
+                print("Move: ", board.moves_str[action])
 
             if valids[action] == 0:
                 log.error(f'Action {action} is not valid!')
@@ -152,6 +154,7 @@ class PlanningArena():
             assert self.display
             print("Game over: Turn ", str(it), "Result ", str(game.getGameEnded(board)))
             self.display(board)
+            print(f"Prior actions: {board.priorActions}")
 
         return 1 if (game.getGameEnded(board) > self.percentile) else 0
 

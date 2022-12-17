@@ -16,7 +16,7 @@ Based on the board for the game of Othello by Eric P. Nichols.
 '''
 from z3 import *
 import numpy as np
-from copy import copy
+import copy
 
 STEP_UPPER_BOUND = 2
 
@@ -41,20 +41,16 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.initGoal.add(self.formula)
         self.curGoal = self.initGoal
         self.step = 0 # number of times a tactic as already been applied
-        self.priorAction = []
+        self.priorActions = []
         self.failed = False
+        self.giveup  = False
+        self.accRLimit = None # machine-independent timing
 
     def __str__(self): # when you print board object
-        return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}"
+        return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
 
     def is_done(self):
-        return self.is_win() or self.is_giveup()
-
-    def __str__(self): # when you print board object
-        return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}"
-
-    def is_done(self):
-        return self.is_win() or self.is_giveup()
+        return self.is_win() or self.is_giveup() or self.is_fail()
 
     def get_legal_moves(self):
         if not self.is_done():
@@ -62,7 +58,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         else:
             return set()
 
-    def get_cur_goal_str(self):
+    def get_state(self):
         return str(self.curGoal)
 
     def get_manual_state(self):
@@ -79,18 +75,18 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return self.failed
 
     def is_giveup(self):
-        return self.step > STEP_UPPER_BOUND
-
+        return self.giveup or self.step > STEP_UPPER_BOUND
 
     def execute_move(self, move):
         """Perform the given move on the board
         """
         # print(type(self.curGoal))
-        result = copy(self)
-        result.priorAction.append(self.moves_str[move])
+        result = copy.deepcopy(self)
+        prevGoal = str(self.curGoal)
+        result.priorActions.append(self.moves_str[move])
 
-        tCombined = Tactic(result.priorAction[0])
-        for tStr in result.priorAction[1:]:
+        tCombined = Tactic(result.priorActions[0])
+        for tStr in result.priorActions[1:]:
             t = Tactic(tStr)
             tCombined = Then(tCombined, t)
         tmp = z3.Solver()
@@ -98,9 +94,11 @@ class Board(): # Keep its name as Board for now; may call it goal later
         try:
             tResult = tCombined(self.initGoal)
             rlimit_after = get_rlimit(tmp)
-            result.accRLimit = rlimit_after - rlimit_before
+            result.accRLimit = rlimit_after - rlimit_before # after applying a tacic(s), accRLimit stores the accumulated (from initial goad to current) resource usage (not in the case of tactic failure)
             assert(len(tResult) == 1)
             result.curGoal = tResult[0]
+            if prevGoal == str(result.curGoal):
+                result.giveup = True
         except Z3Exception:
             result.failed = True
         # t = Tactic(self.moves_str[move])

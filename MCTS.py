@@ -83,11 +83,11 @@ class MCTS():
                 log.info(f"Node not yet seen\n{s}")
             self.Es[s] = game.getGameEnded(canonicalBoard)
 
-        if self.Es[s] != 0 or canonicalBoard.is_giveup(): # TODO: is_giveup condition + winning condition? Es only calculated once and the particular state wont be the end state for every formula
+        if self.Es[s] != 0:
             # terminal node
             if verbose:
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
-            return self.Es[s] - level*0.9 # penalizing for number of steps
+            return self.Es[s] - level*0.1 # penalizing for number of steps
 
         if s not in self.Ps:
             # leaf node

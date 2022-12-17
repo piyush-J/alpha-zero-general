@@ -5,20 +5,22 @@ from Game import Game
 from .SMTLogic import Board
 import numpy as np
 import glob, os
-from copy import copy
+import copy
 from z3 import * # may not need
 
 """
 Game class implementation for SMT solving.
 """
 
+MODEL_OUT_FEATURES = 768
+
 class SMTGame(Game):
-    def __init__(self, benchmarkPath = "/Users/zhengyanglumacmini/Desktop/alpha-zero-general/smt/example", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
+    def __init__(self, benchmarkPath = "smt/example", ext = "smt2", moves_str=("simplify", "smt")): 
         self.bPath = benchmarkPath
         self.ext = ext
-        os.chdir(self.bPath)
+        # os.chdir(self.bPath) # removed this so that you can directly use the relative path smt/example in glob.glob
         self.formulaLst = []
-        for f in glob.glob("*."+ self.ext):
+        for f in glob.glob(f"{self.bPath}/*.{self.ext}"):
             self.formulaLst.append(f)
         self.fSize = len(self.formulaLst)
         if self.fSize < 1: raise Exception("No smt file in the folder")
@@ -26,33 +28,32 @@ class SMTGame(Game):
         self.nextFmID = 0
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later
+        self.accRlimit_all = []
 
     # def _make_representation(self): # TODO: smt
     #     return Board(self.formulaLst[self.curFmID], self.moves_str)
 
     def get_copy(self): # TODO: check if this is necessary later
-        return copy(self) # Check how the ids will be used in copies...
-
+        return copy.deepcopy(self) # Check how the ids will be used in copies...
 
     def getBenchmarkSize(self):
         return self.fSize
 
-    def getInitBoard(self): # Ask Piyush about how to set numIters in main.py
+    def getInitBoard(self): 
         bd = Board(self.formulaLst[self.nextFmID], self.moves_str)
         self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
-        return bd # return the board for now - - made all changes accordingly - donot change
+        return bd # return the board 
 
     def getManualEmbedding(self, board):
         return board.get_manual_state()
 
     def getEmbedding(self, board):
-        return board.get_cur_goal_str()
+        return board.get_state()
 
-    def getBoardSize(self):#, board):
-        # return len(board.get_state())
-        return 2
+    def getBoardSize(self):
+        return MODEL_OUT_FEATURES
 
     def getActionSize(self):
         # return number of actions
@@ -66,7 +67,9 @@ class SMTGame(Game):
         # b2 = self._make_representation()
         # b2.curGoal = board.curGoal
         # b2.step = board.step
-        return board.execute_move(action) # we need to execute the move on a copy otherwise the original board will be changed in MCTS recursion
+        new_board = board.execute_move(action) # we need to execute the move on a copy otherwise the original board will be changed in MCTS recursion
+        self.accRlimit_all.append(new_board.accRLimit)
+        return new_board
 
     def getValidMoves(self, board):
         valids = [0]*self.getActionSize()
@@ -82,12 +85,11 @@ class SMTGame(Game):
     def getGameEnded(self, board):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
         if board.is_fail():
-            return -3
+            return -1 # because of tanh activation
         if board.is_win():
-            # get time from the board
-            return 1 # this can be related to time
+            return 1 - 0.01*board.accRLimit 
         if board.is_giveup():
-            return -5 # Ask Piyush: why -5?
+            return -1
         return 0 # relate to resources later # game not over yet
 
     def getCanonicalForm(self, board): # TODO
@@ -128,4 +130,4 @@ class SMTGame(Game):
                          Required by MCTS for hashing.
         """
         # return board.tobytes()s
-        return ",".join([str(i) for i in board.get_state()])
+        return board.get_state() + " " + str(board.is_done())
