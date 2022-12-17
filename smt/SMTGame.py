@@ -13,7 +13,7 @@ Game class implementation for SMT solving.
 """
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath = "/Users/zhengyanglumacmini/Desktop/alpha-zero-general/smt/example", ext = "smt2", moves_str=("simplify", "smt")): # Ask Piyush about moves_str
+    def __init__(self, benchmarkPath = "/Users/zhengyanglumacmini/Desktop/alpha-zero-general/smt/example", ext = "smt2", moves_str=("simplify", "smt", "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")): # Ask Piyush about moves_str
         self.bPath = benchmarkPath
         self.ext = ext
         os.chdir(self.bPath)
