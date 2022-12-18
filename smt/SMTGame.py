@@ -15,7 +15,7 @@ Game class implementation for SMT solving.
 MODEL_OUT_FEATURES = 768
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath = "smt/example/qf_nia/AProVE/test", ext = "smt2", moves_str=("simplify", "smt", "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")): 
+    def __init__(self, benchmarkPath, ext, moves_str): 
         self.bPath = benchmarkPath
         self.ext = ext
         # os.chdir(self.bPath) # removed this so that you can directly use the relative path smt/example in glob.glob

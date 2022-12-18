@@ -2,8 +2,8 @@
 from smt.SMTGame import SMTGame
 
 def main():
-
-    g = SMTGame()
+    moves_str=("simplify", "smt") # , "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")
+    g = SMTGame(benchmarkPath = "smt/example/debug", ext = "smt2", moves_str = moves_str)
     b0 = g.getInitBoard()
     print(b0.moves_str)
     print("File: " + b0.fPath)
