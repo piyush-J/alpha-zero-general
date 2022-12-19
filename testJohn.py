@@ -37,7 +37,7 @@ def main():
     bd = g.getInitBoard() # a new instance for give up
     print("File: " + bd.fPath)
     for i in range (3):
-        bd = g.getNextState(bd, 0)
+        bd = g.getNextState(bd, 0) # 1 would result in [False] - is win
         print(g.getEmbedding(bd))
         print(bd.priorActions)
         print(bd)

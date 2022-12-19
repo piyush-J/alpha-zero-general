@@ -87,7 +87,7 @@ class MCTS():
             # terminal node
             if verbose:
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
-            return self.Es[s] - level*0.1 # penalizing for number of steps
+            return self.Es[s] - level*0.01 - 0.01*canonicalBoard.get_time() # penalizing for number of steps and time here (because the same end state can appear at different times)
 
         if s not in self.Ps:
             # leaf node

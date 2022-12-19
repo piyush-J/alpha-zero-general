@@ -47,10 +47,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.accRLimit = None # machine-independent timing
 
     def __str__(self): # when you print board object
-        return f"Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
-
-    def is_done(self):
-        return self.is_win() or self.is_giveup() or self.is_fail()
+        return f"fPath: {self.fPath}; Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
 
     def get_legal_moves(self):
         if not self.is_done():
@@ -68,6 +65,9 @@ class Board(): # Keep its name as Board for now; may call it goal later
         numConst = p2(self.curGoal)
         return np.array([numAssert, numConst])
 
+    def get_time(self):
+        return self.accRLimit
+
     def is_win(self):
         return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
 
@@ -76,6 +76,9 @@ class Board(): # Keep its name as Board for now; may call it goal later
 
     def is_giveup(self):
         return self.giveup or self.step > STEP_UPPER_BOUND
+
+    def is_done(self):
+        return self.is_win() or self.is_giveup() or self.is_fail()
 
     def execute_move(self, move):
         """Perform the given move on the board

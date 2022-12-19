@@ -104,7 +104,7 @@ class NNetWrapper(NeuralNet):
             pi, v = self.nnet(board)
 
         # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
-        return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
+        return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0][0]
 
     def loss_pi(self, targets, outputs):
         return -torch.sum(targets * outputs) / targets.size()[0] # TODO: why not using NLL?

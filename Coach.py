@@ -5,6 +5,7 @@ from collections import deque
 from pickle import Pickler, Unpickler
 from random import shuffle
 
+import datetime
 import numpy as np
 from tqdm import tqdm
 
@@ -29,6 +30,7 @@ class Coach():
         self.mcts = MCTS(self.nnet, self.args)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
+        self.filename = "out-{date:%Y-%m-%d_%H:%M:%S}.txt".format(date=datetime.datetime.now())
 
     # def executeEpisode(self):
     #     """
@@ -157,9 +159,14 @@ class Coach():
             log.info('PITTING AGAINST PREVIOUS VERSION')
             # arena = PlanningArena(lambda x: np.argmax(pmcts.getActionProb(x, verbose=True, temp=0)),
             #                         lambda x: np.argmax(nmcts.getActionProb(x, verbose=True, temp=0)), self.game, perc)
+            if i == self.args.numIters:
+                log_to_file = True
+            else:
+                log_to_file = False
             arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game_validation, perc, display=print)
-            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=True)
+                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), 
+                                    self.game_validation, perc, display=print, filename=self.filename, log_to_file=log_to_file, iter=i)
+            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
             log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
             if nrewards == prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
@@ -187,7 +194,7 @@ class Coach():
             trainExamples.extend(e)
 
         # compute the ranked reward for all training examples (not only the last iteration)
-        trainExamples = [(np.where(e[0] != 0, 1, 0), e[1], 1 if e[2]>perc else 0) for e in trainExamples]
+        trainExamples = [(e[0], e[1], 1 if e[2]>=perc else 0) for e in trainExamples]
         
         # shuffle examples before training
         shuffle(trainExamples)

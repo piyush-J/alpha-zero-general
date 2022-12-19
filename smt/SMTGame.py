@@ -33,8 +33,9 @@ class SMTGame(Game):
     # def _make_representation(self): # TODO: smt
     #     return Board(self.formulaLst[self.curFmID], self.moves_str)
 
-    def get_copy(self): # TODO: check if this is necessary later
-        return copy.deepcopy(self) # Check how the ids will be used in copies...
+    def get_copy(self): # verified that a deep copy is not required for smt game
+        return self 
+        # copy.deepcopy(self)
 
     def getBenchmarkSize(self):
         return self.fSize
@@ -87,7 +88,7 @@ class SMTGame(Game):
         if board.is_fail():
             return -1 # because of tanh activation
         if board.is_win():
-            return 1 - 0.01*board.accRLimit
+            return 1
         if board.is_giveup():
             return -1
         return 0 # relate to resources later # game not over yet
