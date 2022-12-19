@@ -13,6 +13,6 @@ checkpoints/
 .idea/
 
 # Project specific
-*.txt
 exptResults
 *.out
+*.log

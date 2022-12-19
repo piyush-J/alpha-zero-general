@@ -33,7 +33,7 @@ class Coach():
         self.mcts = MCTS(self.nnet, self.args)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
-        self.filename = "out-{date:%Y-%m-%d_%H:%M:%S}.txt".format(date=datetime.datetime.now())
+        self.filename = "out-{date:%Y-%m-%d_%H:%M:%S}.log".format(date=datetime.datetime.now())
 
     # def executeEpisode(self):
     #     """
@@ -114,7 +114,10 @@ class Coach():
 
             r = game.getGameEnded(board)
 
-            print(r)
+            # DEBUG
+            # print(print) 
+            # print(board)
+            # print("r: ", r)
 
             if r != 0:
                 # log.info(f"Final board\n{board} with reward {r}")

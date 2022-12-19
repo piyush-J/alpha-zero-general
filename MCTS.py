@@ -1,5 +1,6 @@
 import logging
 import math
+import time
 
 import numpy as np
 
@@ -37,7 +38,8 @@ class MCTS():
         canonicalBoard = game.getCanonicalForm(board)
 
         for _ in range(self.args.numMCTSSims):
-            print(_)
+            # DEBUG
+            #print(_, flush=True)
             self.search(game, canonicalBoard, verbose=verbose)
 
         s = game.stringRepresentation(canonicalBoard)
@@ -76,6 +78,9 @@ class MCTS():
             v: the negative of the value of the current canonicalBoard
         """
 
+        start_time = time.time()
+        #print("1: ", time.time()-start_time)
+
         s = game.stringRepresentation(canonicalBoard)
         # log.info(f"At level {level}\n{s}")
 
@@ -83,6 +88,8 @@ class MCTS():
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
             self.Es[s] = game.getGameEnded(canonicalBoard)
+        
+        #print("2: ", time.time()-start_time)
 
         if self.Es[s] != 0:
             # terminal node
@@ -90,14 +97,20 @@ class MCTS():
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
             return self.Es[s] - level*0.01 - 0.01*canonicalBoard.get_time() # penalizing for number of steps and time here (because the same end state can appear at different times)
 
+        #print("3: ", time.time()-start_time)
+
         if s not in self.Ps:
             # leaf node
+            start_time2 = time.time()
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
+            #print("4a: ", time.time()-start_time2)
             self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
+            #print("4a: ", time.time()-start_time2)
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
+            #print("4b: ", time.time()-start_time2)
             if sum_Ps_s > 0:
                 self.Ps[s] /= sum_Ps_s  # renormalize
             else:
@@ -111,6 +124,8 @@ class MCTS():
 
             self.Vs[s] = valids
             self.Ns[s] = 0
+            #print("4c: ", time.time()-start_time2)
+            #print("4: ", time.time()-start_time)
             return v
 
         valids = self.Vs[s]
@@ -130,6 +145,8 @@ class MCTS():
                     cur_best = u
                     best_act = a
 
+        #print("5: ", time.time()-start_time)
+
         a = best_act
         #TODO: see why this is needed - is it because of the recursion? creating a copy because the game is modified in-place?
         game_copy = game.get_copy()
@@ -137,6 +154,8 @@ class MCTS():
         # next_s = self.game.getCanonicalForm(next_s)
         if verbose:
             log.info(f"Non-leaf node, considering action {a} resulting in\n{next_s}")
+
+        #print("6: ", time.time()-start_time)
 
         v = self.search(game_copy, next_s, level=level+1)
 
