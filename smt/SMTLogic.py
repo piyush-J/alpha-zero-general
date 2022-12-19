@@ -18,7 +18,10 @@ from z3 import *
 import numpy as np
 import copy
 
-STEP_UPPER_BOUND = 2
+import functools
+print = functools.partial(print, flush=True)
+
+STEP_UPPER_BOUND = 7
 
 def get_rlimit(tmpSolver):
     stats = tmpSolver.statistics()

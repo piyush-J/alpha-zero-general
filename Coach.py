@@ -14,6 +14,9 @@ from MCTS import MCTS
 
 log = logging.getLogger(__name__)
 
+import functools
+print = functools.partial(print, flush=True)
+
 
 class Coach():
     """
@@ -110,6 +113,8 @@ class Coach():
             board = game.getNextState(board, action)
 
             r = game.getGameEnded(board)
+
+            print(r)
 
             if r != 0:
                 # log.info(f"Final board\n{board} with reward {r}")

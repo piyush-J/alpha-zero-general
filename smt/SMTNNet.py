@@ -10,6 +10,9 @@ import torch.optim as optim
 
 from transformers import DistilBertTokenizer, DistilBertModel, AutoModelForSequenceClassification
 
+import functools
+print = functools.partial(print, flush=True)
+
 class SMTNNet(nn.Module):
     def __init__(self, game, args):
         super(SMTNNet, self).__init__()

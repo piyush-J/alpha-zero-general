@@ -8,6 +8,9 @@ import glob, os
 import copy
 from z3 import * # may not need
 
+import functools
+print = functools.partial(print, flush=True)
+
 """
 Game class implementation for SMT solving.
 """
