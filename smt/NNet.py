@@ -17,6 +17,9 @@ from transformers import DistilBertTokenizer, DistilBertModel, AutoModelForSeque
 
 from .SMTNNet import SMTNNet as snnet
 
+import functools
+print = functools.partial(print, flush=True)
+
 args = dotdict({
     'lr': 0.001,
     'dropout': 0.3,

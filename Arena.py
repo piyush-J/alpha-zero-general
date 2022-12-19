@@ -5,6 +5,9 @@ from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 
+import functools
+print = functools.partial(print, flush=True)
+
 
 # class Arena():
 #     """

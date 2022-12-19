@@ -6,8 +6,17 @@
 #SBATCH --account=def-vganesh
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=piyush.jha@uwaterloo.ca
-#SBATCH --time=0-12:00      # time (DD-HH:MM)
-#SBATCH --output=run-%N-%j.out  # %N for node name, %j for jobID
+#SBATCH --time=0-18:00      # time (DD-HH:MM)
+#SBATCH --output=exptResults/run-%N-%j.out  # %N for node name, %j for jobID
+
+# Define a timestamp function
+timestamp() {
+  date +"%Y-%m-%d_%H-%M-%S" # current time
+}
+
+OUT_FOLD="exptResults/$(timestamp)"
+mkdir -p "$OUT_FOLD"
+echo "Writing output to folder $OUT_FOLD"
 
 module load cuda gcc python/3.7
 
@@ -15,4 +24,5 @@ source ~/mcts/bin/activate
 
 export PYTHONUNBUFFERED=TRUE
 
-python main.py
+python ./main.py \
+  > "$OUT_FOLD/out.txt" 2>&1

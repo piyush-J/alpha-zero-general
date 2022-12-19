@@ -1,5 +1,6 @@
 *.pyc
 .DS_Store
+.vscode
 
 /temp/
 /.project
@@ -13,3 +14,5 @@ checkpoints/
 
 # Project specific
 *.txt
+exptResults
+*.out

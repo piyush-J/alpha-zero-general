@@ -37,6 +37,7 @@ class MCTS():
         canonicalBoard = game.getCanonicalForm(board)
 
         for _ in range(self.args.numMCTSSims):
+            print(_)
             self.search(game, canonicalBoard, verbose=verbose)
 
         s = game.stringRepresentation(canonicalBoard)

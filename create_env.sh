@@ -4,4 +4,4 @@ virtualenv --no-download --clear ~/mcts
 
 source ~/mcts/bin/activate
 
-pip install -r requirements.txt
+pip install -r requirements_cc.txt
