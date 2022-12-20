@@ -18,10 +18,8 @@ from z3 import *
 import numpy as np
 import copy
 
-import functools
-print = functools.partial(print, flush=True)
-
-STEP_UPPER_BOUND = 7
+STEP_UPPER_BOUND = 10
+TACTIC_TIMEOUT = 10000 # in milliseconds
 
 def get_rlimit(tmpSolver):
     stats = tmpSolver.statistics()
@@ -62,11 +60,18 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return str(self.curGoal)
 
     def get_manual_state(self):
-        p1 = Probe('size')
-        numAssert = p1(self.curGoal)
-        p2 = Probe('num-consts')
-        numConst = p2(self.curGoal)
-        return np.array([numAssert, numConst])
+        p1 = Probe('num-consts')
+        p2 = Probe('num-exprs')
+        p3 = Probe('size')
+        # p4 = Probe('is-qfbv-eq')
+        p5 = Probe('is-unbounded')
+        p6 = Probe('is-pb')
+        numConst = p1(self.curGoal)
+        numExpr = p2(self.curGoal)
+        numAssert = p3(self.curGoal)
+        isUnbound = p5(self.curGoal)
+        isPB = p6(self.curGoal)
+        return np.array([numConst, numExpr, numAssert, isUnbound, isPB])
 
     def get_time(self):
         return self.accRLimit
@@ -75,10 +80,10 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
 
     def is_fail(self):
-        return self.failed
+        return self.giveup or self.failed
 
     def is_giveup(self):
-        return self.giveup or self.step > STEP_UPPER_BOUND
+        return self.step > STEP_UPPER_BOUND
 
     def is_done(self):
         return self.is_win() or self.is_giveup() or self.is_fail()
@@ -88,7 +93,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         """
         # print(type(self.curGoal))
         result = copy.deepcopy(self)
-        prevGoal = str(self.curGoal)
+        prevGoalStr = str(self.curGoal)
         result.priorActions.append(self.moves_str[move])
 
         tCombined = Tactic(result.priorActions[0])
@@ -97,13 +102,14 @@ class Board(): # Keep its name as Board for now; may call it goal later
             tCombined = Then(tCombined, t)
         tmp = z3.Solver()
         rlimit_before = get_rlimit(tmp)
+        tTimed = TryFor(tCombined, TACTIC_TIMEOUT)
         try:
-            tResult = tCombined(self.initGoal)
+            tResult = tTimed(self.initGoal)
             rlimit_after = get_rlimit(tmp)
             result.accRLimit = rlimit_after - rlimit_before # after applying a tacic(s), accRLimit stores the accumulated (from initial goad to current) resource usage (not in the case of tactic failure)
             assert(len(tResult) == 1)
             result.curGoal = tResult[0]
-            if prevGoal == str(result.curGoal):
+            if prevGoalStr == str(result.curGoal):
                 result.giveup = True
         except Z3Exception:
             result.failed = True
