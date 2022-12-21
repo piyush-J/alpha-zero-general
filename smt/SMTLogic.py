@@ -105,8 +105,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         tTimed = TryFor(tCombined, TACTIC_TIMEOUT)
         try:
             tResult = tTimed(self.initGoal)
-            rlimit_after = get_rlimit(tmp)
-            result.accRLimit = rlimit_after - rlimit_before # after applying a tacic(s), accRLimit stores the accumulated (from initial goad to current) resource usage (not in the case of tactic failure)
+
             assert(len(tResult) == 1)
             result.curGoal = tResult[0]
             if prevGoalStr == str(result.curGoal):
@@ -122,5 +121,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         # print(type(self.curGoal))
         # print("after the move: " + move)
         # print(self.curGoal)
+        rlimit_after = get_rlimit(tmp)
+        result.accRLimit = rlimit_after - rlimit_before # after applying a tacic(s), accRLimit stores the accumulated (from initial goad to current) resource usage (not in the case of tactic failure)
         result.step = result.step + 1
         return result
