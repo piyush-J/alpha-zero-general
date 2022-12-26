@@ -39,10 +39,10 @@ args = dotdict({
 
 
 def main():
-    moves_str=("simplify", "smt", "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")
+    moves_str=("simplify", "smt")#, "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")
     log.info(f'Loading {SMTGame.__name__}...')
-    g = SMTGame(benchmarkPath = "smt/example/qf_nia/AProVE/train", ext = "smt2", moves_str = moves_str) # "smt/example/qf_nia/AProVE/test"
-    g_val = SMTGame(benchmarkPath = "smt/example/qf_nia/AProVE/valid", ext = "smt2", moves_str = moves_str)
+    g = SMTGame(benchmarkPath = "smt/example/debug", ext = "smt2", moves_str = moves_str) # "smt/example/qf_nia/AProVE/train and test"
+    g_val = SMTGame(benchmarkPath = "smt/example/debug", ext = "smt2", moves_str = moves_str)
 
     log.info('Loading %s...', snn.__name__)
     nnet = snn(g)

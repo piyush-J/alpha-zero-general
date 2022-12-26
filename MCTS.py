@@ -38,9 +38,7 @@ class MCTS():
         canonicalBoard = game.getCanonicalForm(board)
 
         for _ in range(self.args.numMCTSSims):
-            # DEBUG
-            #print(_, flush=True)
-            self.search(game, canonicalBoard, verbose=verbose)
+            self.search(game, canonicalBoard)
 
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
@@ -82,35 +80,33 @@ class MCTS():
         #print("1: ", time.time()-start_time)
 
         s = game.stringRepresentation(canonicalBoard)
-        # log.info(f"At level {level}\n{s}")
+        
+        if verbose:
+            log.info(f"At level {level}\n{s}")
 
-        if s not in self.Es:
+        if s not in self.Es: # STEP 2: EXPANSION
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
             self.Es[s] = game.getGameEnded(canonicalBoard)
         
         #print("2: ", time.time()-start_time)
 
-        if self.Es[s] != 0:
+        if self.Es[s] != 0: # STEP 4: BACKPROPAGATION
             # terminal node
             if verbose:
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
-            return self.Es[s] - level*0.01 - 0.01*canonicalBoard.get_time() # penalizing for number of steps and time here (because the same end state can appear at different times)
+            return self.Es[s] - 0.01*level - 0.01*canonicalBoard.get_time() # penalizing for number of steps and time here (because the same end state can appear at different times)
 
         #print("3: ", time.time()-start_time)
 
-        if s not in self.Ps:
+        if s not in self.Ps: # STEP 3: ROLLOUT or SIMULATION (use NN to predcit the value, i.e., the end reward to be backpropagated)
             # leaf node
-            start_time2 = time.time()
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
-            #print("4a: ", time.time()-start_time2)
-            self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
-            #print("4a: ", time.time()-start_time2)
+            self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state()) # plays a role in calculating UCB too
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
-            #print("4b: ", time.time()-start_time2)
             if sum_Ps_s > 0:
                 self.Ps[s] /= sum_Ps_s  # renormalize
             else:
@@ -124,28 +120,30 @@ class MCTS():
 
             self.Vs[s] = valids
             self.Ns[s] = 0
-            #print("4c: ", time.time()-start_time2)
-            #print("4: ", time.time()-start_time)
-            return v
+            return v # STEP 4: BACKPROPAGATION
 
         valids = self.Vs[s]
         cur_best = -float('inf')
         best_act = -1
 
         # pick the action with the highest upper confidence bound
-        for a in range(game.getActionSize()-1):
+        if verbose:
+            log.info(f"Pick an action")
+        for a in range(game.getActionSize()-1): # STEP 1: SELECTION
             if valids[a]:
                 if (s, a) in self.Qsa:
+                    if verbose:
+                        log.info(f"Exists in Qsa")
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                             1 + self.Nsa[(s, a)])
                 else:
+                    if verbose:
+                        log.info(f"Does not exist in Qsa")
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
 
                 if u > cur_best:
                     cur_best = u
                     best_act = a
-
-        #print("5: ", time.time()-start_time)
 
         a = best_act
         #TODO: see why this is needed - is it because of the recursion? creating a copy because the game is modified in-place?
