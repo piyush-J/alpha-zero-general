@@ -33,7 +33,7 @@ class Coach():
         self.mcts = MCTS(self.nnet, self.args)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
-        self.filename = "out-{date:%Y-%m-%d_%H:%M:%S}.log".format(date=datetime.datetime.now())
+        self.filename = "out-{date:%Y-%m-%d_%H-%M-%S}.log".format(date=datetime.datetime.now())
 
     # def executeEpisode(self):
     #     """

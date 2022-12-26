@@ -127,7 +127,7 @@ class PlanningArena():
         self.log_to_file = log_to_file
         self.iter = iter
 
-    def playGame(self, agent, game, verbose=False):
+    def playGame(self, agent, game, verbose=False, log_this_agent=False):
         """
         Executes one episode of a game.
 
@@ -163,7 +163,7 @@ class PlanningArena():
             print(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board))}")
             print(f"Prior actions: {board.priorActions}")
 
-        if self.log_to_file:
+        if self.log_to_file and log_this_agent:
             self.f.write(f"Iteration {str(self.iter)}\n")
             self.f.write(str(board)+"\n")
             self.f.write(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board))}\n")
@@ -184,7 +184,7 @@ class PlanningArena():
         agent1game = copy.deepcopy(self.game) # so that every agent goes thru the same set of benchmarks # TODO: might not be needed for every game setting
         agent2game = copy.deepcopy(self.game)
         for _ in tqdm(range(num), desc="Arena.playGames"):
-            agent1Results.append(self.playGame(self.agent1, agent1game, verbose=verbose))
+            agent1Results.append(self.playGame(self.agent1, agent1game, verbose=verbose, log_this_agent=True)) # choose the prev model (would be stable) to log
             agent2Results.append(self.playGame(self.agent2, agent2game, verbose=verbose))
         self.f.close()
         return sum(agent1Results), sum(agent2Results)
