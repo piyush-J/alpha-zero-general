@@ -16,9 +16,25 @@ Game class implementation for SMT solving.
 """
 
 MODEL_OUT_FEATURES = 768
+WIN_REWARD = 1
+NOCHANGE_REWARD = -1
+FAIL_REWARD = -2
+GIVEUP_REWARD = -3
+
+#TO_DO: think more about whether can store/return reference/copy; currently store as reference, return a copy
+class CacheTreeNode:
+    def __init__(self, bd, num_moves):
+        self.board = bd
+        self.numMoves = num_moves
+        self.childLst = [None] * numMoves
+
+    def updateChild(self, resBoard, move):
+        assert(childLst[move] == None)
+        treeNode = CacheTreeNode(resBoard, self.numMoves)
+        self.childLst[move] = treeNode
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath, ext, moves_str): 
+    def __init__(self, benchmarkPath, ext, moves_str):
         self.bPath = benchmarkPath
         self.ext = ext
         # os.chdir(self.bPath) # removed this so that you can directly use the relative path smt/example in glob.glob
@@ -37,7 +53,7 @@ class SMTGame(Game):
     #     return Board(self.formulaLst[self.curFmID], self.moves_str)
 
     def get_copy(self): # verified that a deep copy is not required for smt game
-        return self 
+        return self
         # copy.deepcopy(self)
 
     def getBenchmarkSize(self):
@@ -89,11 +105,13 @@ class SMTGame(Game):
     def getGameEnded(self, board):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
         if board.is_fail():
-            return -1 # because of tanh activation
+            return FAIL_REWARD # because of tanh activation #John: meaning?
+        if board.is_nochange():
+            return NOCHANGE_REWARD
         if board.is_win():
-            return 1
+            return WIN_REWARD
         if board.is_giveup():
-            return -1
+            return GIVEUP_REWARD
         return 0 # relate to resources later # game not over yet
 
     def getCanonicalForm(self, board): # TODO

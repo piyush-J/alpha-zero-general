@@ -19,7 +19,7 @@ import numpy as np
 import copy
 
 STEP_UPPER_BOUND = 10
-TACTIC_TIMEOUT = 10000 # in milliseconds
+TACTIC_TIMEOUT = 50000 # in milliseconds
 
 def get_rlimit(tmpSolver):
     stats = tmpSolver.statistics()
@@ -41,14 +41,15 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.initGoal = z3.Goal()
         self.initGoal.add(self.formula)
         self.curGoal = self.initGoal
-        self.step = 0 # number of times a tactic as already been applied
+        self.step = 0 # number of times tactics have already been applied
         self.priorActions = []
         self.failed = False
-        self.giveup  = False
-        self.accRLimit = None # machine-independent timing
+        self.nochange  = False
+        self.accRLimit = 0 # machine-independent timing
+        self.rlimit = None # rlimit for executing the last tactic
 
     def __str__(self): # when you print board object
-        return f"fPath: {self.fPath}; Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
+        return f"fPath: {self.fPath}; Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
 
     def get_legal_moves(self):
         if not self.is_done():
@@ -80,16 +81,19 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
 
     def is_fail(self):
-        return self.giveup or self.failed
+        return self.failed
+
+    def is_nochange(self):
+        return self.nochange
 
     def is_giveup(self):
         return self.step > STEP_UPPER_BOUND
 
     def is_done(self):
-        return self.is_win() or self.is_giveup() or self.is_fail()
+        return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
 
-    def execute_move(self, move):
-        """Perform the given move on the board
+    def execute_move_acc(self, move):
+        """Perform the given move on the board using a chain of tactics from the intial formula
         """
         # print(type(self.curGoal))
         result = copy.deepcopy(self)
@@ -109,7 +113,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
             assert(len(tResult) == 1)
             result.curGoal = tResult[0]
             if prevGoalStr == str(result.curGoal):
-                result.giveup = True
+                result.nochange = True
         except Z3Exception:
             result.failed = True
         # t = Tactic(self.moves_str[move])
@@ -124,4 +128,31 @@ class Board(): # Keep its name as Board for now; may call it goal later
         rlimit_after = get_rlimit(tmp)
         result.accRLimit = rlimit_after - rlimit_before # after applying a tacic(s), accRLimit stores the accumulated (from initial goad to current) resource usage (not in the case of tactic failure)
         result.step = result.step + 1
+        return result
+
+    def transformNextState(self, move):
+        t = Tactic(self.moves_str[move])
+        self.priorActions.append(self.moves_str[move])
+        tTimed = TryFor(t, TACTIC_TIMEOUT)
+        prevGoalStr = str(self.curGoal)
+        tmp = z3.Solver()
+        rlimit_before = get_rlimit(tmp)
+        try:
+            tResult = tTimed(self.curGoal)
+            assert(len(tResult) == 1)
+            self.curGoal = tResult[0]
+            if prevGoalStr == str(self.curGoal):
+                self.nochange = True
+        except Z3Exception:
+            self.failed = True
+        rlimit_after = get_rlimit(tmp)
+        self.rlimit = rlimit_after - rlimit_before
+        self.accRLimit += self.rlimit
+        self.step = self.step + 1
+
+    def execute_move(self, move):
+        """Perform the given move on the board and return the result board
+        """
+        result = copy.deepcopy(self)
+        result.transformNextState(move)
         return result
