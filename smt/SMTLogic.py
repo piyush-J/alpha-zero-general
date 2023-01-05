@@ -18,8 +18,8 @@ from z3 import *
 import numpy as np
 import copy
 
-STEP_UPPER_BOUND = 10
-TACTIC_TIMEOUT = 50000 # in milliseconds
+STEP_UPPER_BOUND = 8
+TACTIC_TIMEOUT = 10000 # in milliseconds
 
 def get_rlimit(tmpSolver):
     stats = tmpSolver.statistics()
@@ -28,12 +28,23 @@ def get_rlimit(tmpSolver):
             return stats[i][1]
     return 0
 
+#TO_DO: think more about whether can store/return reference/copy; currently store as reference, return a copy
+class CacheTreeNode():
+    def __init__(self, num_moves, bd = None):
+        self.board = bd # for original formula no need to cache the board; for root of every tree in the forest, this field is None
+        self.numMoves = num_moves
+        self.childLst = [None] * self.numMoves
+
+    # def updateChild(self, resBoard, move):
+    #     assert(childLst[move] == None)
+    #     treeNode = CacheTreeNode(resBoard, self.numMoves)
+    #     self.childLst[move] = treeNode
+
 class Board(): # Keep its name as Board for now; may call it goal later
-
-    def __init__(self, formulaPath, moves_str):
+    def __init__(self, formulaPath, moves_str, cTreeNode):
         "Set up initial board configuration."
-
         self.fPath = formulaPath
+        self.cacheTN = cTreeNode
         # print(formulaPath)
         self.moves_str = moves_str
         # Create the empty board array.
@@ -42,7 +53,8 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.initGoal.add(self.formula)
         self.curGoal = self.initGoal
         self.step = 0 # number of times tactics have already been applied
-        self.priorActions = []
+        self.priorActions = [] # store list of tactic strings
+        # self.priorMoves = [] # store list of tactic IDs #to_do: whether needs both
         self.failed = False
         self.nochange  = False
         self.accRLimit = 0 # machine-independent timing
@@ -92,6 +104,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def is_done(self):
         return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
 
+    # outdated: no include caching
     def execute_move_acc(self, move):
         """Perform the given move on the board using a chain of tactics from the intial formula
         """
@@ -99,6 +112,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         result = copy.deepcopy(self)
         prevGoalStr = str(self.curGoal)
         result.priorActions.append(self.moves_str[move])
+        # result.priorMoves.append(move)
 
         tCombined = Tactic(result.priorActions[0])
         for tStr in result.priorActions[1:]:
@@ -131,8 +145,10 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return result
 
     def transformNextState(self, move):
+        self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
         t = Tactic(self.moves_str[move])
         self.priorActions.append(self.moves_str[move])
+        # self.priorMoves.append(move)
         tTimed = TryFor(t, TACTIC_TIMEOUT)
         prevGoalStr = str(self.curGoal)
         tmp = z3.Solver()
@@ -153,6 +169,12 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def execute_move(self, move):
         """Perform the given move on the board and return the result board
         """
+        assert(not self.is_done())
+        if self.cacheTN.childLst[move] is not None:
+            # print("find cache")
+            return self.cacheTN.childLst[move].board
         result = copy.deepcopy(self)
         result.transformNextState(move)
+        # remember to update the cahce tree
+        self.cacheTN.childLst[move] = result.cacheTN
         return result

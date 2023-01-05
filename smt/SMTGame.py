@@ -2,6 +2,7 @@ from __future__ import print_function
 import sys
 sys.path.append('..')
 from Game import Game
+from .SMTLogic import CacheTreeNode
 from .SMTLogic import Board
 import numpy as np
 import glob, os
@@ -21,17 +22,6 @@ NOCHANGE_REWARD = -1
 FAIL_REWARD = -2
 GIVEUP_REWARD = -3
 
-#TO_DO: think more about whether can store/return reference/copy; currently store as reference, return a copy
-class CacheTreeNode:
-    def __init__(self, bd, num_moves):
-        self.board = bd
-        self.numMoves = num_moves
-        self.childLst = [None] * numMoves
-
-    def updateChild(self, resBoard, move):
-        assert(childLst[move] == None)
-        treeNode = CacheTreeNode(resBoard, self.numMoves)
-        self.childLst[move] = treeNode
 
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str):
@@ -39,15 +29,18 @@ class SMTGame(Game):
         self.ext = ext
         # os.chdir(self.bPath) # removed this so that you can directly use the relative path smt/example in glob.glob
         self.formulaLst = []
+        self.forest = [] # caching forest
+        self.moves_str = moves_str
+        self.action_size = len(moves_str) # TODO: change later John: how
         for f in glob.glob(f"{self.bPath}/*.{self.ext}"):
             self.formulaLst.append(f)
+            self.forest.append(CacheTreeNode(num_moves = self.action_size))
         self.fSize = len(self.formulaLst)
         if self.fSize < 1: raise Exception("No smt file in the folder")
         self.curFmID = -1 # may not need
         self.nextFmID = 0
-        self.moves_str = moves_str
-        self.action_size = len(moves_str) # TODO: change later
-        self.accRlimit_all = []
+        self.accRlimit_all = [] # John: what's this?
+
 
     # def _make_representation(self): # TODO: smt
     #     return Board(self.formulaLst[self.curFmID], self.moves_str)
@@ -59,8 +52,10 @@ class SMTGame(Game):
     def getBenchmarkSize(self):
         return self.fSize
 
+    # TO_DD: check whether need both currentID and nextID
     def getInitBoard(self):
-        bd = Board(self.formulaLst[self.nextFmID], self.moves_str)
+        tnode = self.forest[self.nextFmID]
+        bd = Board(self.formulaLst[self.nextFmID], self.moves_str, tnode)
         self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
@@ -84,10 +79,7 @@ class SMTGame(Game):
     def getNextState(self, board, action):
         # if takes action on board, return next board
         # action must be a valid move
-        # b2 = self._make_representation()
-        # b2.curGoal = board.curGoal
-        # b2.step = board.step
-        new_board = board.execute_move(action) # we need to execute the move on a copy otherwise the original board will be changed in MCTS recursion
+        new_board = board.execute_move(action)
         self.accRlimit_all.append(new_board.accRLimit)
         return new_board
 
