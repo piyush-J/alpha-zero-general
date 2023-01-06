@@ -37,7 +37,7 @@ class SMTGame(Game):
             self.forest.append(CacheTreeNode(num_moves = self.action_size))
         self.fSize = len(self.formulaLst)
         if self.fSize < 1: raise Exception("No smt file in the folder")
-        self.curFmID = -1 # may not need
+        # self.curFmID = -1 # may not need
         self.nextFmID = 0
         self.accRlimit_all = [] # John: what's this?
 
@@ -49,6 +49,10 @@ class SMTGame(Game):
         return self
         # copy.deepcopy(self)
 
+    def setNextFmID(self, id = 0): #set self.nextFmID value, and correspondingly, self.curFmID
+        assert(id < self.fSize)
+        self.nextFmID = id
+
     def getBenchmarkSize(self):
         return self.fSize
 
@@ -56,7 +60,7 @@ class SMTGame(Game):
     def getInitBoard(self):
         tnode = self.forest[self.nextFmID]
         bd = Board(self.formulaLst[self.nextFmID], self.moves_str, tnode)
-        self.curFmID = self.nextFmID
+        # self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
         return bd # return the board

@@ -146,6 +146,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
 
     def transformNextState(self, move):
         self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
+        print(self.moves_str[move])
         t = Tactic(self.moves_str[move])
         self.priorActions.append(self.moves_str[move])
         # self.priorMoves.append(move)
@@ -173,6 +174,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         if self.cacheTN.childLst[move] is not None:
             # print("find cache")
             return self.cacheTN.childLst[move].board
+        # print("no cache")
         result = copy.deepcopy(self)
         result.transformNextState(move)
         # remember to update the cahce tree
