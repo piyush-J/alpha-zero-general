@@ -1,0 +1,54 @@
+{
+    "training_dir": "smt/example/qf_nia/AProVE/train",
+    "validation_dir": "smt/example/qf_nia/AProVE/valid",
+    "file_ext": "smt2",
+    "coach_args": {
+        "numIters": 3,
+        "numEps": 216,
+        "tempThreshold": 15,
+        "updateThreshold": 0.6,
+        "maxlenOfQueue": 200000,
+        "numMCTSSims": 25,
+        "arenaCompare": 418,
+        "cpuct": 1,
+        "checkpoint": "./temp/",
+        "load_model": false,
+        "load_folder_file": "./temp/','best.pth.tar",
+        "numItersForTrainExamplesHistory": 20
+      },
+    "tactics_config": {
+        "all_tactics": [
+            "simplify",
+            "smt",
+	    "bit-blast",
+            "propagate-values",
+	    "ctx-simplify",
+            "elim-uncnstr",
+            "solve-eqs",
+	    "lia2card",
+	    "max-bv-sharing",
+	    "nla2bv",
+	    "qfnra-nlsat",
+	    "cofactor-term-ite"
+	],
+	"allowed_params": {
+	    "simplify": {
+		"boolean": [
+		    "elim_and",
+		    "som",
+		    "blast_distinct",
+		    "flat",
+		    "hi_div0",
+		    "local_ctx",
+		    "hoist_mul"
+		]
+	    },
+	    "nla2bv": {
+		"integer": [
+		    ["nla2bv_max_bv_size", 0, 100]
+		]
+	    }
+
+	}
+    }
+}

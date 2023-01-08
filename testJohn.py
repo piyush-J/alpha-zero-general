@@ -1,10 +1,17 @@
+import argparse
+import json
 from smt.SMTGame import SMTGame
 from smt.SMTGame import WIN_REWARD, NOCHANGE_REWARD, FAIL_REWARD, GIVEUP_REWARD
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('json_config', type=str, help='Json with experiment design')
+    args_cl = parser.parse_args()
+    config = json.load(open(args_cl.json_config, 'r'))
+    print(config['tactics_config']['all_tactics'])
     print("\n basic testing")
     printingStatusStr = "Current game status: " + str(WIN_REWARD) + " -- solved; 0 -- unsolved; (" + str(GIVEUP_REWARD) + ") -- give_up; (" + str(NOCHANGE_REWARD) + ") -- nochange; (" + str(FAIL_REWARD) + ") -- fail"
-    moves_str=("simplify", "smt") # , "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")
+    moves_str = config['tactics_config']['all_tactics']# , "bit-blast", "propagate-values", "ctx-simplify", "elim-uncnstr", "solve-eqs", "lia2card",  "max-bv-sharing", "nla2bv", "qfnra-nlsat", "cofactor-term-ite")
     g = SMTGame(benchmarkPath = "smt/example/debug", ext = "smt2", moves_str = moves_str)
     b0 = g.getInitBoard()
     print("File: " + b0.fPath)

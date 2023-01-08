@@ -146,7 +146,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
 
     def transformNextState(self, move):
         self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
-        print(self.moves_str[move])
+        # print(self.moves_str[move])
         t = Tactic(self.moves_str[move])
         self.priorActions.append(self.moves_str[move])
         # self.priorMoves.append(move)
