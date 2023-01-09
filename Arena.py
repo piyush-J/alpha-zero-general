@@ -168,23 +168,26 @@ class PlanningArena():
             self.f.write(str(board)+"\n")
             self.f.write(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board))}\n")
             self.f.write(f"Prior actions: {board.priorActions}\n\n")
-            
+
         return 1 if (game.getGameEnded(board) >= self.percentile) else 0
 
     def playGames(self, num, verbose=False):
         """
         Each agent plays num games
-        
+
         Returns:
             number of rewards >= percentile for agent1
             number of rewards >= percentile for agent2
         """
         agent1Results = []
         agent2Results = []
-        agent1game = copy.deepcopy(self.game) # so that every agent goes thru the same set of benchmarks # TODO: might not be needed for every game setting
-        agent2game = copy.deepcopy(self.game)
-        for _ in tqdm(range(num), desc="Arena.playGames"):
-            agent1Results.append(self.playGame(self.agent1, agent1game, verbose=verbose, log_this_agent=True)) # choose the prev model (would be stable) to log
-            agent2Results.append(self.playGame(self.agent2, agent2game, verbose=verbose))
+        # agent1game = copy.deepcopy(self.game) # so that every agent goes thru the same set of benchmarks # TODO: might not be needed for every game setting
+        # agent2game = copy.deepcopy(self.game)
+        for _ in tqdm(range(num), desc="Arena.playGames1"):
+            agent1Results.append(self.playGame(self.agent1, self.game, verbose=verbose, log_this_agent=True)) # choose the prev model (would be stable) to log
+        self.game.setNextFmID()
+        for _ in tqdm(range(num), desc="Arena.playGames2"):
+            agent2Results.append(self.playGame(self.agent2, self.game, verbose=verbose))
+        self.game.setNextFmID()
         self.f.close()
         return sum(agent1Results), sum(agent2Results)
