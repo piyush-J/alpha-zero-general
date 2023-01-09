@@ -48,7 +48,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.accRLimit = None # machine-independent timing
 
     def __str__(self): # when you print board object
-        return f"fPath: {self.fPath}; Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
+        return f"fPath: {self.fPath}; Embedding: {self.get_manual_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_giveup: {self.is_giveup()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
 
     def get_legal_moves(self):
         if not self.is_done():

@@ -16,6 +16,7 @@ Game class implementation for SMT solving.
 """
 
 MODEL_OUT_FEATURES = 768
+MANUAL_FEATURES = 5
 
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str): 
@@ -57,7 +58,7 @@ class SMTGame(Game):
         return board.get_state()
 
     def getBoardSize(self):
-        return MODEL_OUT_FEATURES
+        return MANUAL_FEATURES
 
     def getActionSize(self):
         # return number of actions
@@ -134,4 +135,5 @@ class SMTGame(Game):
                          Required by MCTS for hashing.
         """
         # return board.tobytes()s
-        return board.get_state() + " " + str(board.is_done())
+        return np.array2string(board.get_manual_state(), precision=2, separator=',',
+                      suppress_small=True) + " " + str(board.is_done())

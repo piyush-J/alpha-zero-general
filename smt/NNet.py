@@ -35,7 +35,7 @@ class NNetWrapper(NeuralNet):
         self.nnet = snnet(game, args)
         self.board_x = game.getBoardSize()
         self.action_size = game.getActionSize()
-        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        # self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
         if args.cuda:
@@ -59,14 +59,14 @@ class NNetWrapper(NeuralNet):
             for _ in t:
                 sample_ids = np.random.randint(len(examples), size=args.batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                boards = self.tokenizer(boards, padding="max_length", truncation=True, return_tensors='pt').to(self.device)
-                # boards = torch.FloatTensor(np.array(boards).astype(np.float64))
+                # boards = self.tokenizer(boards, padding="max_length", truncation=True, return_tensors='pt').to(self.device)
+                boards = torch.FloatTensor(np.array(boards).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
 
                 # predict
                 if args.cuda:
-                    target_pis, target_vs = target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
+                    boards, target_pis, target_vs = boards.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
 
                 # compute output
                 out_pi, out_v = self.nnet(boards)
@@ -93,15 +93,15 @@ class NNetWrapper(NeuralNet):
 
         if isinstance(board, Board):
             print("Board instance passed to predict")
-            board = board.get_state()
+            board = board.get_manual_state()
         # print(board)
         # preparing input
-        board = self.tokenizer(board, padding="max_length", truncation=True, return_tensors='pt').to(self.device)
+        # uncomment when incorporating the tokenizer # board = self.tokenizer(board, padding="max_length", truncation=True, return_tensors='pt').to(self.device)
         # print(board)
         # print(board.shape)
-        # board = torch.FloatTensor(board.astype(np.float64))
-        # if args.cuda: board = board.contiguous().cuda()
-        # board = board.view(1, self.board_x)
+        board = torch.FloatTensor(board.astype(np.float64))
+        if args.cuda: board = board.contiguous().cuda()
+        board = board.view(1, self.board_x)
         self.nnet.eval()
         with torch.no_grad():
             pi, v = self.nnet(board)
