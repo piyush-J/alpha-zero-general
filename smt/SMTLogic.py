@@ -61,7 +61,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.rlimit = None # rlimit for executing the last tactic
 
     def __str__(self): # when you print board object
-        return f"fPath: {self.fPath}; Embedding: {self.get_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
+        return f"fPath: {self.fPath}; Embedding: {self.get_manual_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
 
     def get_legal_moves(self):
         if not self.is_done():

@@ -106,7 +106,7 @@ class Coach():
             canonicalBoard = game.getCanonicalForm(board)
             sym = game.getSymmetries(canonicalBoard, pi)
             for b, p in sym:
-                trainExamples.append([b.get_state(), p, None]) # store the embedding of the board
+                trainExamples.append([b.get_manual_state(), p, None]) # store the embedding of the board
 
             action = np.random.choice(len(pi), p=pi)
             # log.info(f"Taking action {action}")
