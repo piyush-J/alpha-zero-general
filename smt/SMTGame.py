@@ -18,6 +18,9 @@ Game class implementation for SMT solving.
 MODEL_OUT_FEATURES = 768
 MANUAL_FEATURES = 5
 
+STEP_WT = 0.1
+TIME_WT = 0.1
+
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str): 
         self.bPath = benchmarkPath
@@ -87,14 +90,14 @@ class SMTGame(Game):
             valids[x]=1
         return np.array(valids)
 
-    def getGameEnded(self, board):
+    def getGameEnded(self, board, level=0):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
         if board.is_fail():
-            return -1 # because of tanh activation
+            return -1 - STEP_WT*level - TIME_WT*board.get_time() 
         if board.is_win():
-            return 1
+            return 1 - STEP_WT*level - TIME_WT*board.get_time()
         if board.is_giveup():
-            return -1
+            return -1 - STEP_WT*level - TIME_WT*board.get_time()
         return 0 # relate to resources later # game not over yet
 
     def getCanonicalForm(self, board): # TODO

@@ -112,7 +112,7 @@ class Coach():
             # log.info(f"Taking action {action}")
             board = game.getNextState(board, action)
 
-            r = game.getGameEnded(board)
+            r = game.getGameEnded(board, episodeStep-1)
 
             # DEBUG
             # print(print) 

@@ -139,7 +139,7 @@ class PlanningArena():
         """
         board = game.getInitBoard()
         it = 0
-        while game.getGameEnded(board) == 0: # returns the reward if the game is over, else None
+        while game.getGameEnded(board, it-1) == 0: # returns the reward if the game is over, else None
             it += 1
             # action = agent(game.getCanonicalForm(board))
             action = agent(game, board)
@@ -160,16 +160,16 @@ class PlanningArena():
         if verbose:
             assert self.display
             self.display(board)
-            print(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board))}")
+            print(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board, it-1))}")
             print(f"Prior actions: {board.priorActions}")
 
         if self.log_to_file and log_this_agent:
             self.f.write(f"Iteration {str(self.iter)}\n")
             self.f.write(str(board)+"\n")
-            self.f.write(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board))}\n")
+            self.f.write(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board, it-1))}\n")
             self.f.write(f"Prior actions: {board.priorActions}\n\n")
             
-        return 1 if (game.getGameEnded(board) >= self.percentile) else 0
+        return 1 if (game.getGameEnded(board, it-1) >= self.percentile) else 0
 
     def playGames(self, num, verbose=False):
         """
