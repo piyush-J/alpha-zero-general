@@ -2,6 +2,7 @@ from __future__ import print_function
 import sys
 sys.path.append('..')
 from Game import Game
+from .SMTLogic import CacheTreeNode
 from .SMTLogic import Board
 import numpy as np
 import glob, os
@@ -18,38 +19,52 @@ Game class implementation for SMT solving.
 MODEL_OUT_FEATURES = 768
 MANUAL_FEATURES = 5
 
+WIN_REWARD = 1
+NOCHANGE_REWARD = -1
+FAIL_REWARD = -2
+GIVEUP_REWARD = -3
+
 STEP_WT = 0.1
 TIME_WT = 0.1
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath, ext, moves_str): 
+    def __init__(self, benchmarkPath, ext, moves_str):
         self.bPath = benchmarkPath
         self.ext = ext
         # os.chdir(self.bPath) # removed this so that you can directly use the relative path smt/example in glob.glob
         self.formulaLst = []
+        self.forest = [] # caching forest
+        self.moves_str = moves_str
+        self.action_size = len(moves_str) # TODO: change later John: how
         for f in glob.glob(f"{self.bPath}/*.{self.ext}"):
             self.formulaLst.append(f)
+            self.forest.append(CacheTreeNode(num_moves = self.action_size))
         self.fSize = len(self.formulaLst)
         if self.fSize < 1: raise Exception("No smt file in the folder")
-        self.curFmID = -1 # may not need
+        # self.curFmID = -1 # may not need
         self.nextFmID = 0
-        self.moves_str = moves_str
-        self.action_size = len(moves_str) # TODO: change later
-        self.accRlimit_all = []
+        self.accRlimit_all = [] # John: what's this?
+
 
     # def _make_representation(self): # TODO: smt
     #     return Board(self.formulaLst[self.curFmID], self.moves_str)
 
     def get_copy(self): # verified that a deep copy is not required for smt game
-        return self 
+        return self
         # copy.deepcopy(self)
+
+    def setNextFmID(self, id = 0): #set self.nextFmID value, and correspondingly, self.curFmID
+        assert(id < self.fSize)
+        self.nextFmID = id
 
     def getBenchmarkSize(self):
         return self.fSize
 
+    # TO_DD: check whether need both currentID and nextID
     def getInitBoard(self):
-        bd = Board(self.formulaLst[self.nextFmID], self.moves_str)
-        self.curFmID = self.nextFmID
+        tnode = self.forest[self.nextFmID]
+        bd = Board(self.formulaLst[self.nextFmID], self.moves_str, tnode)
+        # self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
         return bd # return the board
@@ -72,10 +87,7 @@ class SMTGame(Game):
     def getNextState(self, board, action):
         # if takes action on board, return next board
         # action must be a valid move
-        # b2 = self._make_representation()
-        # b2.curGoal = board.curGoal
-        # b2.step = board.step
-        new_board = board.execute_move(action) # we need to execute the move on a copy otherwise the original board will be changed in MCTS recursion
+        new_board = board.execute_move(action)
         self.accRlimit_all.append(new_board.accRLimit)
         return new_board
 
@@ -93,11 +105,13 @@ class SMTGame(Game):
     def getGameEnded(self, board, level=0):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
         if board.is_fail():
-            return -1 - STEP_WT*level - TIME_WT*board.get_time() 
+            return FAIL_REWARD - STEP_WT*level - TIME_WT*board.get_time()  #John: meaning?
+        if board.is_nochange():
+            return NOCHANGE_REWARD
         if board.is_win():
-            return 1 - STEP_WT*level - TIME_WT*board.get_time()
+            return WIN_REWARD - STEP_WT*level - TIME_WT*board.get_time()
         if board.is_giveup():
-            return -1 - STEP_WT*level - TIME_WT*board.get_time()
+            return GIVEUP_REWARD - STEP_WT*level - TIME_WT*board.get_time()
         return 0 # relate to resources later # game not over yet
 
     def getCanonicalForm(self, board): # TODO
