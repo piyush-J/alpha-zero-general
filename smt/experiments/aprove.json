@@ -2,11 +2,12 @@
     "training_dir": "smt/example/qf_nia/AProVE/train",
     "validation_dir": "smt/example/qf_nia/AProVE/valid",
     "file_ext": "smt2",
+
     "coach_args": {
         "numIters": 3,
         "numEps": 216,
         "tempThreshold": 15,
-        "updateThreshold": 0.6,
+        "updateThreshold": 0.5,
         "maxlenOfQueue": 200000,
         "numMCTSSims": 25,
         "arenaCompare": 418,
@@ -14,7 +15,8 @@
         "checkpoint": "./temp/",
         "load_model": false,
         "load_folder_file": "./temp/','best.pth.tar",
-        "numItersForTrainExamplesHistory": 20
+        "numItersForTrainExamplesHistory": 20,
+        "log_to_file": 1
       },
     "tactics_config": {
         "all_tactics": [

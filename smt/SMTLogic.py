@@ -41,8 +41,9 @@ class CacheTreeNode():
     #     self.childLst[move] = treeNode
 
 class Board(): # Keep its name as Board for now; may call it goal later
-    def __init__(self, formulaPath, moves_str, cTreeNode):
+    def __init__(self, ID, formulaPath, moves_str, cTreeNode):
         "Set up initial board configuration."
+        self.id = ID
         self.fPath = formulaPath
         self.cacheTN = cTreeNode
         # print(formulaPath)
@@ -54,14 +55,13 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.curGoal = self.initGoal
         self.step = 0 # number of times tactics have already been applied
         self.priorActions = [] # store list of tactic strings
-        # self.priorMoves = [] # store list of tactic IDs #to_do: whether needs both
         self.failed = False
         self.nochange  = False
         self.accRLimit = 0 # machine-independent timing
         self.rlimit = None # rlimit for executing the last tactic
 
     def __str__(self): # when you print board object
-        return f"fPath: {self.fPath}; Embedding: {self.get_manual_state()}; Current goal: {self.curGoal}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
+        return f"fID: {self.id}; fPath: {self.fPath}; Embedding: {self.get_manual_state()}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
 
     def get_legal_moves(self):
         if not self.is_done():

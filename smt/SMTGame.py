@@ -19,19 +19,18 @@ Game class implementation for SMT solving.
 MODEL_OUT_FEATURES = 768
 MANUAL_FEATURES = 5
 
-WIN_REWARD = 1
-NOCHANGE_REWARD = -1
-FAIL_REWARD = -2
-GIVEUP_REWARD = -3
+WIN_REWARD = 1000000
+NOCHANGE_REWARD = -10
+FAIL_REWARD = -100
+GIVEUP_REWARD = -10
 
-STEP_WT = 0.1
-TIME_WT = 0.1
+STEP_WT = 0
+TIME_WT = 0.01
 
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str):
         self.bPath = benchmarkPath
         self.ext = ext
-        # os.chdir(self.bPath) # removed this so that you can directly use the relative path smt/example in glob.glob
         self.formulaLst = []
         self.forest = [] # caching forest
         self.moves_str = moves_str
@@ -63,7 +62,7 @@ class SMTGame(Game):
     # TO_DD: check whether need both currentID and nextID
     def getInitBoard(self):
         tnode = self.forest[self.nextFmID]
-        bd = Board(self.formulaLst[self.nextFmID], self.moves_str, tnode)
+        bd = Board(self.nextFmID, self.formulaLst[self.nextFmID], self.moves_str, tnode)
         # self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
@@ -105,13 +104,17 @@ class SMTGame(Game):
     def getGameEnded(self, board, level=0):
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
         if board.is_fail():
-            return FAIL_REWARD - STEP_WT*level - TIME_WT*board.get_time()  #John: meaning?
+            # print("fail")
+            return FAIL_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         if board.is_nochange():
-            return NOCHANGE_REWARD
+            # print("no_change; level: " + str(level) + " time: " + str(board.get_time()))
+            return NOCHANGE_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         if board.is_win():
+            # print("win")
             return WIN_REWARD - STEP_WT*level - TIME_WT*board.get_time()
         if board.is_giveup():
-            return GIVEUP_REWARD - STEP_WT*level - TIME_WT*board.get_time()
+            # print("give up")
+            return GIVEUP_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         return 0 # relate to resources later # game not over yet
 
     def getCanonicalForm(self, board): # TODO
