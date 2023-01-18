@@ -31,10 +31,11 @@ class Coach():
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
         self.log_to_file = self.args.log_to_file
-        self.mcts = MCTS(self.nnet, self.args)
+        self.filename = "out-{date:%Y-%m-%d_%H-%M-%S}.log".format(date=datetime.datetime.now())
+        self.mcts = MCTS(self.nnet, self.args, self.filename)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
-        self.filename = "out-{date:%Y-%m-%d_%H-%M-%S}.log".format(date=datetime.datetime.now())
+
 
     # def executeEpisode(self):
     #     """
@@ -121,6 +122,12 @@ class Coach():
             # print("r: ", r)
 
             if r != 0:
+                if self.log_to_file:
+                    f = open(self.filename,'a+')
+                    f.write(f"Final board {board}\n")
+                    f.write(f"Actions: {board.priorActions}\n")
+                    f.write(f"Game over: Return {r}\n\n")
+                    f.close()
                 # log.info(f"Final board\n{board} with reward {r}")
                 return [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
 
@@ -145,7 +152,11 @@ class Coach():
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
                 for _ in tqdm(range(self.args.numEps), desc="Self Play"):
-                    self.mcts = MCTS(self.nnet, self.args)  # reset search tree
+                    if self.log_to_file:
+                        f = open(self.filename,'a+')
+                        f.write(f'Episode #{_} ...\n')
+                        f.close()
+                    self.mcts = MCTS(self.nnet, self.args, self.filename)  # reset search tree
                     iterationTrainExamples += self.executeEpisode()
 
                 # save the iteration examples to the history
@@ -164,13 +175,13 @@ class Coach():
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.pnet, self.args)
+            pmcts = MCTS(self.pnet, self.args, self.filename)
 
             self.nnet.train(trainExamples)
-            nmcts = MCTS(self.nnet, self.args)
+            nmcts = MCTS(self.nnet, self.args, self.filename)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
-            
+
             arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
                                     lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)),
                                     self.game_validation, display=print, filename=self.filename, log_to_file=self.log_to_file, iter=i)

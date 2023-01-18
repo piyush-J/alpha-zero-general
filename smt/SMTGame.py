@@ -19,13 +19,13 @@ Game class implementation for SMT solving.
 MODEL_OUT_FEATURES = 768
 MANUAL_FEATURES = 5
 
-WIN_REWARD = 1000000
-NOCHANGE_REWARD = -10
-FAIL_REWARD = -100
-GIVEUP_REWARD = -10
+WIN_REWARD = 1
+NOCHANGE_REWARD = -1
+FAIL_REWARD = -3
+GIVEUP_REWARD = -1
 
 STEP_WT = 0
-TIME_WT = 0.01
+TIME_WT = 0.00000002
 
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str):
@@ -111,7 +111,9 @@ class SMTGame(Game):
             return NOCHANGE_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         if board.is_win():
             # print("win")
-            return WIN_REWARD - STEP_WT*level - TIME_WT*board.get_time()
+            reward = WIN_REWARD - STEP_WT*level - TIME_WT*board.get_time()
+            assert(reward > 0)
+            return reward
         if board.is_giveup():
             # print("give up")
             return GIVEUP_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
