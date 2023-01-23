@@ -14,7 +14,7 @@ class MCTS():
     This class handles the MCTS tree.
     """
 
-    def __init__(self, nnet, args, filename='out.txt'):
+    def __init__(self, nnet, args, filename='out.txt'): #TO_DO: change the filename variable name related to output
         # self.game = game.get_copy()
         self.filename = filename
         self.nnet = nnet
