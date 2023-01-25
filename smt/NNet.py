@@ -27,8 +27,8 @@ args = dotdict({
     'batch_size': 64,
     'cuda': torch.cuda.is_available(),
     'num_channels': 512,
+    'embedding_size': 128,
 })
-
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game):
@@ -59,17 +59,22 @@ class NNetWrapper(NeuralNet):
             for _ in t:
                 sample_ids = np.random.randint(len(examples), size=args.batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                boards = np.array(boards).astype(np.float64)
+                priorActions = boards[:, self.board_x:]
+                boards = boards[:, :self.board_x]
                 # boards = self.tokenizer(boards, padding="max_length", truncation=True, return_tensors='pt').to(self.device)
                 boards = torch.FloatTensor(np.array(boards).astype(np.float64))
+                priorActions = torch.IntTensor(priorActions.astype(np.int64))
                 target_pis = torch.FloatTensor(np.array(pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
 
                 # predict
                 if args.cuda:
-                    boards, target_pis, target_vs = boards.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
+                    boards, priorActions, target_pis, target_vs = boards.contiguous().cuda(), priorActions.contiguous().cuda(), \
+                                                                    target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
 
                 # compute output
-                out_pi, out_v = self.nnet(boards)
+                out_pi, out_v = self.nnet(boards, priorActions)
                 l_pi = self.loss_pi(target_pis, out_pi)
                 l_v = self.loss_v(target_vs, out_v)
                 total_loss = l_pi + l_v
@@ -97,14 +102,19 @@ class NNetWrapper(NeuralNet):
         # print(board)
         # preparing input
         # uncomment when incorporating the tokenizer # board = self.tokenizer(board, padding="max_length", truncation=True, return_tensors='pt').to(self.device)
-        # print(board)
-        # print(board.shape)
+        
+        priorActions = board[self.board_x:]
+        board = board[:self.board_x]
         board = torch.FloatTensor(board.astype(np.float64))
-        if args.cuda: board = board.contiguous().cuda()
+        priorActions = torch.IntTensor(priorActions.astype(np.int64))
+        if args.cuda: 
+            board = board.contiguous().cuda()
+            priorActions = priorActions.contiguous().cuda()
         board = board.view(1, self.board_x)
+        priorActions = priorActions.view(1, -1)
         self.nnet.eval()
         with torch.no_grad():
-            pi, v = self.nnet(board)
+            pi, v = self.nnet(board, priorActions)
 
         # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0][0]

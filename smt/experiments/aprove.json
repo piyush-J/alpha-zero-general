@@ -18,6 +18,11 @@
         "numItersForTrainExamplesHistory": 20,
         "log_to_file": 1
       },
+    "AProVE_min_max": {
+        "num_consts": [2, 985],
+        "num_exprs": [13, 56497],
+        "size": [4, 6074]
+    },
     "tactics_config": {
         "all_tactics": [
             "simplify",

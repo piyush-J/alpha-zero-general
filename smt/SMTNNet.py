@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from .SMTLogic import STEP_UPPER_BOUND
 
 from transformers import DistilBertTokenizer, DistilBertModel, AutoModelForSequenceClassification
 
@@ -20,6 +21,7 @@ class SMTNNet(nn.Module):
         self.board_x = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.args = args
+        self.embeddings = nn.Embedding(self.action_size, self.args.embedding_size, padding_idx=0)
         # self.pretrained_model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
         # self.pretrained_model.classifier = torch.nn.Linear(in_features=768, out_features=768, bias=True)
 
@@ -33,17 +35,20 @@ class SMTNNet(nn.Module):
         # self.bn3 = nn.BatchNorm2d(args.num_channels)
         # self.bn4 = nn.BatchNorm2d(args.num_channels)
 
-        self.fc1 = nn.Linear(self.board_x, 64)
-        self.fc_bn1 = nn.BatchNorm1d(64)
+        self.fc11 = nn.Linear(self.args.embedding_size*(STEP_UPPER_BOUND+1), 64)
+        self.fc_bn11 = nn.BatchNorm1d(64)
 
-        self.fc2 = nn.Linear(64, 32)
+        self.fc12 = nn.Linear(self.board_x, 64)
+        self.fc_bn12 = nn.BatchNorm1d(64)
+        
+        self.fc2 = nn.Linear(128, 32)
         self.fc_bn2 = nn.BatchNorm1d(32)
-
+                        
         self.fc3 = nn.Linear(32, self.action_size)
 
         self.fc4 = nn.Linear(32, 1)
 
-    def forward(self, s):
+    def forward(self, s, prior_a):
         #                                                           s: batch_size x board_x
         # s = s.view(-1, 1, self.board_x, self.board_y)                # batch_size x 1 x board_x x board_y
         # s = F.relu(self.bn1(self.conv1(s)))                          # batch_size x num_channels x board_x x board_y
@@ -53,7 +58,11 @@ class SMTNNet(nn.Module):
         # s = s.view(-1, self.args.num_channels*(self.board_x-4)*(self.board_y-4))
 
         # s = self.pretrained_model(**s)[0] # batch_size x 768
-        s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=self.args.dropout, training=self.training)  # batch_size x 64
+        e = self.embeddings(prior_a) # batch_size x size of the prior action sequence x embedding_size
+        e = torch.reshape(e, (e.shape[0], -1)) # batch_size x (embedding_size * size of the prior action sequence)
+        e = F.dropout(F.relu(self.fc_bn11(self.fc11(e))), p=self.args.dropout, training=self.training)  # batch_size x 64
+        s = F.dropout(F.relu(self.fc_bn12(self.fc12(s))), p=self.args.dropout, training=self.training)  # batch_size x 64
+        s = torch.cat([s, e], 1) # batch_size x 128
         s = F.dropout(F.relu(self.fc_bn2(self.fc2(s))), p=self.args.dropout, training=self.training)  # batch_size x 32
 
         pi = self.fc3(s)                                                                         # batch_size x action_size

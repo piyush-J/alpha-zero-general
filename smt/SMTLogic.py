@@ -41,13 +41,14 @@ class CacheTreeNode():
     #     self.childLst[move] = treeNode
 
 class Board(): # Keep its name as Board for now; may call it goal later
-    def __init__(self, ID, formulaPath, moves_str, cTreeNode):
+    def __init__(self, ID, formulaPath, moves_str, cTreeNode, stats):
         "Set up initial board configuration."
         self.id = ID
         self.fPath = formulaPath
         self.cacheTN = cTreeNode
         # print(formulaPath)
         self.moves_str = moves_str
+        self.stats = stats
         # Create the empty board array.
         self.formula = z3.parse_smt2_file(formulaPath) # maynot need to store this
         self.initGoal = z3.Goal()
@@ -80,11 +81,18 @@ class Board(): # Keep its name as Board for now; may call it goal later
         p5 = Probe('is-unbounded')
         p6 = Probe('is-pb')
         numConst = p1(self.curGoal)
+        numConst = (numConst-self.stats["num_consts"][0])/(self.stats["num_consts"][1]-self.stats["num_consts"][0])
         numExpr = p2(self.curGoal)
+        numExpr = (numExpr-self.stats["num_exprs"][0])/(self.stats["num_exprs"][1]-self.stats["num_exprs"][0])
         numAssert = p3(self.curGoal)
+        numAssert = (numAssert-self.stats["size"][0])/(self.stats["size"][1]-self.stats["size"][0])
         isUnbound = p5(self.curGoal)
         isPB = p6(self.curGoal)
-        return np.array([numConst, numExpr, numAssert, isUnbound, isPB])
+        
+        priorActionsInt = [self.moves_str.index(act)+1 for act in self.priorActions] # +1 to avoid 0 (0 is reserved for padding)
+        prior_actions_padded = priorActionsInt + [0] * (STEP_UPPER_BOUND - len(priorActionsInt) + 1)
+        
+        return np.array([numConst, numExpr, numAssert, isUnbound, isPB] + prior_actions_padded)
 
     def get_time(self):
         return self.accRLimit

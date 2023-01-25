@@ -28,11 +28,12 @@ STEP_WT = 0
 TIME_WT = 0.00000002
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath, ext, moves_str):
+    def __init__(self, benchmarkPath, ext, moves_str, stats):
         self.bPath = benchmarkPath
         self.ext = ext
         self.formulaLst = []
         self.forest = [] # caching forest
+        self.stats = stats
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later John: how
         for f in glob.glob(f"{self.bPath}/*.{self.ext}"):
@@ -59,10 +60,10 @@ class SMTGame(Game):
     def getBenchmarkSize(self):
         return self.fSize
 
-    # TO_DD: check whether need both currentID and nextID
+    # TODO: check whether need both currentID and nextID
     def getInitBoard(self):
         tnode = self.forest[self.nextFmID]
-        bd = Board(self.nextFmID, self.formulaLst[self.nextFmID], self.moves_str, tnode)
+        bd = Board(self.nextFmID, self.formulaLst[self.nextFmID], self.moves_str, tnode, self.stats)
         # self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
