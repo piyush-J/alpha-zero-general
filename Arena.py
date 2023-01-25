@@ -105,7 +105,7 @@ print = functools.partial(print, flush=True)
 
 class PlanningArena():
 
-    def __init__(self, agent1, agent2, game, percentile, display=None, filename='out.txt', log_to_file=False, iter=0):
+    def __init__(self, agent1, agent2, game, display=None, filename='out.txt', log_to_file=False, iter=0):
         """
         Input:
             agent 1,2: two functions that takes board as input, return action
@@ -121,13 +121,12 @@ class PlanningArena():
         self.agent2 = agent2
         self.game = game
         self.display = display
-        self.percentile = percentile
         self.filename = filename
         self.f = open(self.filename,'a+')
         self.log_to_file = log_to_file
         self.iter = iter
 
-    def playGame(self, agent, game, verbose=False, log_this_agent=False):
+    def playGame(self, agent, game, verbose=False):
         """
         Executes one episode of a game.
 
@@ -163,13 +162,14 @@ class PlanningArena():
             print(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board, it-1))}")
             print(f"Prior actions: {board.priorActions}")
 
-        if self.log_to_file and log_this_agent:
-            self.f.write(f"Iteration {str(self.iter)}\n")
+        if self.log_to_file:
+            # self.f.write(f"Iteration {str(self.iter)}\n") # add write Iter# and player#
             self.f.write(str(board)+"\n")
-            self.f.write(f"Game over: Player {str(agent)} Turn {str(it)} Result {str(game.getGameEnded(board, it-1))}\n")
-            self.f.write(f"Prior actions: {board.priorActions}\n\n")
+            self.f.write(f"Actions: {board.priorActions}\n")
+            self.f.write(f"Game over: Return {str(game.getGameEnded(board, it-1))}\n\n")
 
-        return 1 if (game.getGameEnded(board, it-1) >= self.percentile) else 0
+
+        return game.getGameEnded(board, it-1)
 
     def playGames(self, num, verbose=False):
         """
@@ -181,13 +181,22 @@ class PlanningArena():
         """
         agent1Results = []
         agent2Results = []
-        # agent1game = copy.deepcopy(self.game) # so that every agent goes thru the same set of benchmarks # TODO: might not be needed for every game setting
-        # agent2game = copy.deepcopy(self.game)
+        self.f.write("Agent 1 (prev): \n")
         for _ in tqdm(range(num), desc="Arena.playGames1"):
-            agent1Results.append(self.playGame(self.agent1, self.game, verbose=verbose, log_this_agent=True)) # choose the prev model (would be stable) to log
+            agent1Results.append(self.playGame(self.agent1, self.game, verbose=verbose)) # choose the prev model (would be stable) to log
         self.game.setNextFmID()
+        self.f.write("Agent 2 (new): \n")
         for _ in tqdm(range(num), desc="Arena.playGames2"):
             agent2Results.append(self.playGame(self.agent2, self.game, verbose=verbose))
         self.game.setNextFmID()
         self.f.close()
-        return sum(agent1Results), sum(agent2Results)
+        if verbose:
+            log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
+        # print("Agent1 results: " + str(agent1Results))
+        # print("Agent2 results: " + str(agent2Results))
+        agent1Wins = 0
+        agent2Wins = 0
+        for i in range(num):
+            if agent2Results[i] > agent1Results[i]: agent2Wins += 1
+            elif agent2Results[i] < agent1Results[i]: agent1Wins += 1
+        return agent1Wins, agent2Wins

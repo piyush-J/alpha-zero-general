@@ -30,10 +30,12 @@ class Coach():
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
-        self.mcts = MCTS(self.nnet, self.args)
+        self.log_to_file = self.args.log_to_file
+        self.filename = "out-{date:%Y-%m-%d_%H-%M-%S}.log".format(date=datetime.datetime.now())
+        self.mcts = MCTS(self.nnet, self.args, self.filename)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
-        self.filename = "out-{date:%Y-%m-%d_%H-%M-%S}.log".format(date=datetime.datetime.now())
+
 
     # def executeEpisode(self):
     #     """
@@ -115,11 +117,17 @@ class Coach():
             r = game.getGameEnded(board, episodeStep-1)
 
             # DEBUG
-            # print(print) 
+            # print(print)
             # print(board)
             # print("r: ", r)
 
             if r != 0:
+                if self.log_to_file:
+                    f = open(self.filename,'a+')
+                    f.write(f"Final board {board}\n")
+                    f.write(f"Actions: {board.priorActions}\n")
+                    f.write(f"Game over: Return {r}\n\n")
+                    f.close()
                 # log.info(f"Final board\n{board} with reward {r}")
                 return [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
 
@@ -135,15 +143,23 @@ class Coach():
         for i in range(1, self.args.numIters + 1):
             # bookkeeping
             log.info(f'Starting Iter #{i} ...')
+            if self.log_to_file:
+                f = open(self.filename,'a+')
+                f.write(f'Starting Iter #{i} ...\n')
+                f.close()
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
                 for _ in tqdm(range(self.args.numEps), desc="Self Play"):
-                    self.mcts = MCTS(self.nnet, self.args)  # reset search tree
+                    if self.log_to_file:
+                        f = open(self.filename,'a+')
+                        f.write(f'Episode #{_} ...\n')
+                        f.close()
+                    self.mcts = MCTS(self.nnet, self.args, self.filename)  # reset search tree
                     iterationTrainExamples += self.executeEpisode()
 
-                # save the iteration examples to the history 
+                # save the iteration examples to the history
                 self.trainExamplesHistory.append(iterationTrainExamples)
 
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
@@ -151,33 +167,28 @@ class Coach():
                     f"Removing the oldest entry in trainExamples. len(trainExamplesHistory) = {len(self.trainExamplesHistory)}")
                 self.trainExamplesHistory.pop(0)
             # backup history to a file
-            # NB! the examples were collected using the model from the previous iteration, so (i-1)  
+            # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
 
-            trainExamples, perc = self.prepareTrainExamples()
+            trainExamples = self.prepareTrainExamples()
 
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.pnet, self.args)
+            pmcts = MCTS(self.pnet, self.args, self.filename)
 
             self.nnet.train(trainExamples)
-            nmcts = MCTS(self.nnet, self.args)
+            nmcts = MCTS(self.nnet, self.args, self.filename)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
-            # arena = PlanningArena(lambda x: np.argmax(pmcts.getActionProb(x, verbose=True, temp=0)),
-            #                         lambda x: np.argmax(nmcts.getActionProb(x, verbose=True, temp=0)), self.game, perc)
-            if i == self.args.numIters:
-                log_to_file = True
-            else:
-                log_to_file = False
+
             arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), 
-                                    self.game_validation, perc, display=print, filename=self.filename, log_to_file=log_to_file, iter=i)
+                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)),
+                                    self.game_validation, display=print, filename=self.filename, log_to_file=self.log_to_file, iter=i)
             prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
-            log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
-            if nrewards == prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
+            log.info('NEW/PREV WINING COUNTS : %d / %d' % (nrewards, prewards))
+            if nrewards <= prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
                 log.info('REJECTING NEW MODEL')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:
@@ -186,28 +197,23 @@ class Coach():
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
     def prepareTrainExamples(self):
-        # Ranked reward: we replace the actual reward with 0 or 1, depending on whether
-        # that reward is smaller/larger than the 75 percentile of all rewards.
-        
-        # compute .75 percentile for the last iteration
+
         iterationExamples = self.trainExamplesHistory[-1]
-        rew = [e[2] for e in iterationExamples] 
+        rew = [e[2] for e in iterationExamples]
         # mean, min, std and max of the rewards
         log.info(f"REWARDS - Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
-        perc = np.percentile(rew, 75)
-        log.info(f"Percentile is {perc}")
 
         trainExamples = []
         for e in self.trainExamplesHistory:
             trainExamples.extend(e)
 
-        # compute the ranked reward for all training examples (not only the last iteration)
-        trainExamples = [(e[0], e[1], 1 if e[2]>=perc else 0) for e in trainExamples]
-        
+        # all training examples (not only the last iteration)
+        trainExamples = [(e[0], e[1], e[2]) for e in trainExamples]
+
         # shuffle examples before training
         shuffle(trainExamples)
 
-        return trainExamples, perc
+        return trainExamples
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'

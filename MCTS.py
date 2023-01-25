@@ -14,10 +14,12 @@ class MCTS():
     This class handles the MCTS tree.
     """
 
-    def __init__(self, nnet, args):
+    def __init__(self, nnet, args, filename='out.txt'): #TO_DO: change the filename variable name related to output
         # self.game = game.get_copy()
+        self.filename = filename
         self.nnet = nnet
         self.args = args
+        self.log_to_file = self.args.log_to_file
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
         self.Nsa = {}  # stores #times edge s,a was visited
         self.Ns = {}  # stores #times board s was visited
@@ -80,7 +82,7 @@ class MCTS():
         #print("1: ", time.time()-start_time)
 
         s = game.stringRepresentation(canonicalBoard)
-        
+
         if verbose:
             log.info(f"At level {level}\n{s}")
 
@@ -88,13 +90,19 @@ class MCTS():
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
             self.Es[s] = game.getGameEnded(canonicalBoard)
-        
+
         #print("2: ", time.time()-start_time)
 
         if self.Es[s] != 0: # STEP 4: BACKPROPAGATION
             # terminal node
-            if verbose:
-                log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
+            if self.log_to_file:
+                f = open(self.filename,'a+')
+                f.write(f"Search reach final board {canonicalBoard}\n")
+                f.write(f"Actions: {canonicalBoard.priorActions}\n")
+                f.write(f"Game over: Return {game.getGameEnded(canonicalBoard, level)}\n\n")
+                f.close()
+            # if verbose:
+            #     log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
             return game.getGameEnded(canonicalBoard, level)
             # return self.Es[s] - 0.01*level - 0.01*canonicalBoard.get_time() # penalizing for number of steps and time here (because the same end state can appear at different times)
 
@@ -114,7 +122,7 @@ class MCTS():
                 # if all valid moves were masked make all valid moves equally probable
 
                 # NB! All valid moves may be masked if either your NNet architecture is insufficient or you've get overfitting or something else.
-                # If you have got dozens or hundreds of these messages you should pay attention to your NNet and/or training process.   
+                # If you have got dozens or hundreds of these messages you should pay attention to your NNet and/or training process.
                 log.error("All valid moves were masked, doing a workaround.")
                 self.Ps[s] = self.Ps[s] + valids
                 self.Ps[s] /= np.sum(self.Ps[s])
