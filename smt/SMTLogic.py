@@ -64,11 +64,9 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def __str__(self): # when you print board object
         return f"fID: {self.id}; fPath: {self.fPath}; Embedding: {self.get_manual_state()}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
 
-    def get_legal_moves(self):
-        if not self.is_done():
-            return set([i for i in range(len(self.moves_str))])
-        else:
-            return set()
+    def get_legal_moves(self): # Not required for this game, but may be useful for other games
+        if self.is_done():
+            raise Exception("Game is already over")
 
     def get_state(self):
         return str(self.curGoal)

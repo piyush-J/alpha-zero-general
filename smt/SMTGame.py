@@ -81,7 +81,7 @@ class SMTGame(Game):
     def getActionSize(self):
         # return number of actions
         # return len(board.get_legal_moves())
-        return self.action_size + 1 # TODO: check if +1 is necessary
+        return self.action_size # TODO: check if +1 is necessary
 
     # make sure with Piyush this won't be called on already ended board
     def getNextState(self, board, action):
@@ -92,14 +92,14 @@ class SMTGame(Game):
         return new_board
 
     def getValidMoves(self, board):
-        valids = [0]*self.getActionSize()
-        legal_moves = board.get_legal_moves()
+        valids = [1]*self.getActionSize()
+        _ = board.get_legal_moves() # just to check if the board is ended
         # print("legal moves: ", legal_moves)
-        if len(legal_moves)==0:
-            valids[-1]=1
-            return np.array(valids)
-        for x in legal_moves:
-            valids[x]=1
+        # if len(legal_moves)==0:
+        #     valids[-1]=1
+        #     return np.array(valids)
+        # for x in legal_moves:
+        # valids[x]=1
         return np.array(valids)
 
     def getGameEnded(self, board, level=0):
