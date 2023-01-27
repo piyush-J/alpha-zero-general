@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from Arena import PlanningArena
 from MCTS import MCTS
+from Runner import Runner
 
 log = logging.getLogger(__name__)
 
@@ -175,15 +176,15 @@ class Coach():
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.pnet, self.args, self.filename)
+            prunner = Runner(self.pnet, self.args)
 
             self.nnet.train(trainExamples)
-            nmcts = MCTS(self.nnet, self.args, self.filename)
+            nrunner = Runner(self.nnet, self.args)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
 
-            arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)),
+            arena = PlanningArena(lambda board: np.argmax(prunner.getActionProb(board)),
+                                    lambda board: np.argmax(nrunner.getActionProb(board)),
                                     self.game_validation, display=print, filename=self.filename, log_to_file=self.log_to_file, iter=i)
             prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 

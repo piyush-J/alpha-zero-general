@@ -141,7 +141,7 @@ class PlanningArena():
         while game.getGameEnded(board, it-1) == 0: # returns the reward if the game is over, else None
             it += 1
             # action = agent(game.getCanonicalForm(board))
-            action = agent(game, board)
+            action = agent(board)
             valids = game.getValidMoves(game.getCanonicalForm(board))
 
             # if verbose:
@@ -192,8 +192,8 @@ class PlanningArena():
         self.f.close()
         if verbose:
             log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
-        # print("Agent1 results: " + str(agent1Results))
-        # print("Agent2 results: " + str(agent2Results))
+        print("Agent1 results: " + str(agent1Results))
+        print("Agent2 results: " + str(agent2Results))
         agent1Wins = 0
         agent2Wins = 0
         for i in range(num):
