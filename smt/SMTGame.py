@@ -28,7 +28,8 @@ STEP_WT = 0
 TIME_WT = 0.00000002
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath, ext, moves_str, stats):
+    def __init__(self, benchmarkPath, ext, moves_str, stats, tactic_timeout, train = True):
+        self.train = train
         self.bPath = benchmarkPath
         self.ext = ext
         self.formulaLst = []
@@ -62,8 +63,9 @@ class SMTGame(Game):
 
     # TODO: check whether need both currentID and nextID
     def getInitBoard(self):
-        tnode = self.forest[self.nextFmID]
-        bd = Board(self.nextFmID, self.formulaLst[self.nextFmID], self.moves_str, tnode, self.stats)
+        tnode = None
+        if self.train: tnode = self.forest[self.nextFmID]
+        bd = Board(self.nextFmID, self.formulaLst[self.nextFmID], self.moves_str, tnode, self.stats, self.train)
         # self.curFmID = self.nextFmID
         if self.nextFmID == self.fSize - 1: self.nextFmID = 0
         else: self.nextFmID = self.nextFmID + 1
@@ -87,7 +89,7 @@ class SMTGame(Game):
     def getNextState(self, board, action):
         # if takes action on board, return next board
         # action must be a valid move
-        new_board = board.execute_move(action)
+        new_board = board.execute_move(action, self.tactic_timeout)
         self.accRlimit_all.append(new_board.accRLimit)
         return new_board
 
@@ -102,22 +104,23 @@ class SMTGame(Game):
         # valids[x]=1
         return np.array(valids)
 
-    def getGameEnded(self, board, level=0):
+    def getGameEnded(self, board,level = 0): #John: want to delete the level here
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
-        if board.is_fail():
-            # print("fail")
-            return FAIL_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
-        if board.is_nochange():
-            # print("no_change; level: " + str(level) + " time: " + str(board.get_time()))
-            return NOCHANGE_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         if board.is_win():
             # print("win")
             reward = WIN_REWARD - STEP_WT*level - TIME_WT*board.get_time()
             assert(reward > 0)
             return reward
-        if board.is_giveup():
-            # print("give up")
-            return GIVEUP_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
+        if self.train:
+            if board.is_fail():
+                # print("fail")
+                return FAIL_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
+            if board.is_nochange():
+                # print("no_change; level: " + str(level) + " time: " + str(board.get_time()))
+                return NOCHANGE_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
+            if board.is_giveup():
+                # print("give up")
+                return GIVEUP_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         return 0 # relate to resources later # game not over yet
 
     def getCanonicalForm(self, board): # TODO
@@ -148,6 +151,7 @@ class SMTGame(Game):
         """
         return [(board, pi)]
 
+    # John: is this used?
     def stringRepresentation(self, board): # TODO
         """
         Input:

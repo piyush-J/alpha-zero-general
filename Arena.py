@@ -129,12 +129,6 @@ class PlanningArena():
     def playGame(self, agent, game, verbose=False):
         """
         Executes one episode of a game.
-
-        Returns:
-            either
-                winner: player who won the game (1 if player1, -1 if player2)
-            or
-                draw result returned from the game that is neither 1, -1, nor 0.
         """
         board = game.getInitBoard()
         it = 0
@@ -143,7 +137,7 @@ class PlanningArena():
             # action = agent(game.getCanonicalForm(board))
             action = agent(board)
             valids = game.getValidMoves(game.getCanonicalForm(board))
-
+            print(valids)
             # if verbose:
             #     assert self.display
             #     print("Turn ", str(it), "Player ", str(agent))

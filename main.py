@@ -49,11 +49,11 @@ def main():
     val_path = config['validation_dir']
     smt_ext = config['file_ext']
     mv_str = config['tactics_config']['all_tactics']
-    stats = config['AProVE_min_max']
+    stats = config['AProVE_min_max'] #change this name: more general
     coach_args = dotdict(config['coach_args'])
     log.info(f'Loading {SMTGame.__name__}...')
-    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats)
-    g_val = SMTGame(benchmarkPath = val_path, ext = smt_ext, moves_str = mv_str, stats = stats)
+    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats, tactic_timeout = train_timeout)
+    g_val = SMTGame(benchmarkPath = val_path, ext = smt_ext, moves_str = mv_str, stats = stats, tactic_timeout = val_timeout, train = False)
 
     log.info('Loading %s...', snn.__name__)
     nnet = snn(g)

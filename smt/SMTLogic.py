@@ -41,8 +41,9 @@ class CacheTreeNode():
     #     self.childLst[move] = treeNode
 
 class Board(): # Keep its name as Board for now; may call it goal later
-    def __init__(self, ID, formulaPath, moves_str, cTreeNode, stats):
+    def __init__(self, ID, formulaPath, moves_str, cTreeNode, stats, train):
         "Set up initial board configuration."
+        self.train = train
         self.id = ID
         self.fPath = formulaPath
         self.cacheTN = cTreeNode
@@ -86,10 +87,10 @@ class Board(): # Keep its name as Board for now; may call it goal later
         numAssert = (numAssert-self.stats["size"][0])/(self.stats["size"][1]-self.stats["size"][0])
         isUnbound = p5(self.curGoal)
         isPB = p6(self.curGoal)
-        
+
         priorActionsInt = [self.moves_str.index(act)+1 for act in self.priorActions] # +1 to avoid 0 (0 is reserved for padding)
         prior_actions_padded = priorActionsInt + [0] * (STEP_UPPER_BOUND - len(priorActionsInt) + 1)
-        
+
         return np.array([numConst, numExpr, numAssert, isUnbound, isPB] + prior_actions_padded)
 
     def get_time(self):
@@ -108,50 +109,14 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return self.step > STEP_UPPER_BOUND
 
     def is_done(self):
-        return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
+        if self.train:
+            return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
+        return self.is_win()
 
-    # outdated: no include caching
-    def execute_move_acc(self, move):
-        """Perform the given move on the board using a chain of tactics from the intial formula
-        """
-        # print(type(self.curGoal))
-        result = copy.deepcopy(self)
-        prevGoalStr = str(self.curGoal)
-        result.priorActions.append(self.moves_str[move])
-        # result.priorMoves.append(move)
-
-        tCombined = Tactic(result.priorActions[0])
-        for tStr in result.priorActions[1:]:
-            t = Tactic(tStr)
-            tCombined = Then(tCombined, t)
-        tmp = z3.Solver()
-        rlimit_before = get_rlimit(tmp)
-        tTimed = TryFor(tCombined, TACTIC_TIMEOUT)
-        try:
-            tResult = tTimed(self.initGoal)
-
-            assert(len(tResult) == 1)
-            result.curGoal = tResult[0]
-            if prevGoalStr == str(result.curGoal):
-                result.nochange = True
-        except Z3Exception:
-            result.failed = True
-        # t = Tactic(self.moves_str[move])
-        # print("Initial goal")
-        # print(self.curGoal)
-        # output = t(self.curGoal)
-        # result.curGoal = z3.Goal()
-        # result.curGoal.add(output.as_expr()) # try outGoal[0]
-        # print(type(self.curGoal))
-        # print("after the move: " + move)
-        # print(self.curGoal)
-        rlimit_after = get_rlimit(tmp)
-        result.accRLimit = rlimit_after - rlimit_before # after applying a tacic(s), accRLimit stores the accumulated (from initial goad to current) resource usage (not in the case of tactic failure)
-        result.step = result.step + 1
-        return result
-
-    def transformNextState(self, move):
-        self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
+    # with the current caching design, timeout cannot be changed for a formula
+    def transformNextState(self, move, timeout):
+        if self.train:
+            self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
         # print(self.moves_str[move])
         t = Tactic(self.moves_str[move])
         self.priorActions.append(self.moves_str[move])
@@ -173,16 +138,17 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.accRLimit += self.rlimit
         self.step = self.step + 1
 
-    def execute_move(self, move):
+
+    def execute_move(self, move, timeout):
         """Perform the given move on the board and return the result board
         """
         assert(not self.is_done())
-        if self.cacheTN.childLst[move] is not None:
-            # print("find cache")
+        if (self.train) and (self.cacheTN.childLst[move] is not None):
             return self.cacheTN.childLst[move].board
         # print("no cache")
         result = copy.deepcopy(self)
-        result.transformNextState(move)
+        result.transformNextState(move, timeout)
         # remember to update the cahce tree
-        self.cacheTN.childLst[move] = result.cacheTN
+        if self.train:
+            self.cacheTN.childLst[move] = result.cacheTN
         return result
