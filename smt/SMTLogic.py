@@ -111,7 +111,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def is_done(self):
         if self.train:
             return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
-        return self.is_win()
+        return self.is_win() or self.is_giveup()
 
     # with the current caching design, timeout cannot be changed for a formula
     def transformNextState(self, move, timeout):

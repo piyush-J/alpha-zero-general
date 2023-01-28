@@ -137,7 +137,6 @@ class PlanningArena():
             # action = agent(game.getCanonicalForm(board))
             action = agent(board)
             valids = game.getValidMoves(game.getCanonicalForm(board))
-            print(valids)
             # if verbose:
             #     assert self.display
             #     print("Turn ", str(it), "Player ", str(agent))

@@ -35,6 +35,7 @@ class SMTGame(Game):
         self.formulaLst = []
         self.forest = [] # caching forest
         self.stats = stats
+        self.tactic_timeout = tactic_timeout
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later John: how
         for f in glob.glob(f"{self.bPath}/*.{self.ext}"):
@@ -107,20 +108,16 @@ class SMTGame(Game):
     def getGameEnded(self, board,level = 0): #John: want to delete the level here
         # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
         if board.is_win():
-            # print("win")
             reward = WIN_REWARD - STEP_WT*level - TIME_WT*board.get_time()
             assert(reward > 0)
             return reward
+        if board.is_giveup():
+            return GIVEUP_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         if self.train:
             if board.is_fail():
-                # print("fail")
                 return FAIL_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
             if board.is_nochange():
-                # print("no_change; level: " + str(level) + " time: " + str(board.get_time()))
                 return NOCHANGE_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
-            if board.is_giveup():
-                # print("give up")
-                return GIVEUP_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
         return 0 # relate to resources later # game not over yet
 
     def getCanonicalForm(self, board): # TODO
