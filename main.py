@@ -22,23 +22,6 @@ log = logging.getLogger(__name__)
 
 coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
-# args = dotdict({
-#     'numIters': 3,
-#     'numEps': 52,              # Number of complete self-play games to simulate during a new iteration. # with the current setting it can only be training set size #TO_DO: do not hard code it
-#     'tempThreshold': 15,        #
-#     'updateThreshold': 0.6,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
-#     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks. #TODO: Change this to 200000
-#     'numMCTSSims': 25,          # Number of games moves for MCTS to simulate.
-#     'arenaCompare': 30,         # Number of games to play during arena play to determine if new net will be accepted. # now can only be validation set size #TO_DO: do not hard code it
-#     'cpuct': 1,                 # controls the amount of exploration
-#
-#     'checkpoint': './temp/',
-#     'load_model': False,
-#     'load_folder_file': ('./temp/','best.pth.tar'),
-#     'numItersForTrainExamplesHistory': 20,
-#
-# })
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -49,11 +32,13 @@ def main():
     val_path = config['validation_dir']
     smt_ext = config['file_ext']
     mv_str = config['tactics_config']['all_tactics']
-    stats = config['AProVE_min_max']
+    train_timeout = config["train_timeout"]
+    val_timeout = config["val_timeout"]
+    stats = config['AProVE_min_max'] #change this name: more general
     coach_args = dotdict(config['coach_args'])
     log.info(f'Loading {SMTGame.__name__}...')
-    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats)
-    g_val = SMTGame(benchmarkPath = val_path, ext = smt_ext, moves_str = mv_str, stats = stats)
+    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats, tactic_timeout = train_timeout)
+    g_val = SMTGame(benchmarkPath = val_path, ext = smt_ext, moves_str = mv_str, stats = stats, tactic_timeout = val_timeout, train = False)
 
     log.info('Loading %s...', snn.__name__)
     nnet = snn(g)
