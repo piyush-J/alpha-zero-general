@@ -19,7 +19,7 @@ import numpy as np
 import copy
 
 STEP_UPPER_BOUND = 8
-TACTIC_TIMEOUT = 10000 # in milliseconds
+# TACTIC_TIMEOUT = 10000 # in milliseconds
 
 def get_rlimit(tmpSolver):
     stats = tmpSolver.statistics()
@@ -121,7 +121,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         t = Tactic(self.moves_str[move])
         self.priorActions.append(self.moves_str[move])
         # self.priorMoves.append(move)
-        tTimed = TryFor(t, TACTIC_TIMEOUT)
+        tTimed = TryFor(t, timeout * 1000)
         prevGoalStr = str(self.curGoal)
         tmp = z3.Solver()
         rlimit_before = get_rlimit(tmp)

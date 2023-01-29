@@ -21,7 +21,7 @@ class SMTNNet(nn.Module):
         self.board_x = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.args = args
-        self.embeddings = nn.Embedding(self.action_size, self.args.embedding_size, padding_idx=0)
+        self.embeddings = nn.Embedding(self.action_size + 1, self.args.embedding_size, padding_idx=0)
         # self.pretrained_model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
         # self.pretrained_model.classifier = torch.nn.Linear(in_features=768, out_features=768, bias=True)
 
@@ -40,10 +40,10 @@ class SMTNNet(nn.Module):
 
         self.fc12 = nn.Linear(self.board_x, 64)
         self.fc_bn12 = nn.BatchNorm1d(64)
-        
+
         self.fc2 = nn.Linear(128, 32)
         self.fc_bn2 = nn.BatchNorm1d(32)
-                        
+
         self.fc3 = nn.Linear(32, self.action_size)
 
         self.fc4 = nn.Linear(32, 1)

@@ -21,7 +21,7 @@ MANUAL_FEATURES = 5
 
 WIN_REWARD = 1
 NOCHANGE_REWARD = -1
-FAIL_REWARD = -3
+FAIL_REWARD = -1
 GIVEUP_REWARD = -1
 
 STEP_WT = 0
@@ -38,6 +38,7 @@ class SMTGame(Game):
         self.tactic_timeout = tactic_timeout
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later John: how
+        assert(self.action_size > 1)
         for f in glob.glob(f"{self.bPath}/*.{self.ext}"):
             self.formulaLst.append(f)
             self.forest.append(CacheTreeNode(num_moves = self.action_size))
@@ -46,7 +47,6 @@ class SMTGame(Game):
         # self.curFmID = -1 # may not need
         self.nextFmID = 0
         self.accRlimit_all = [] # John: what's this?
-
 
     # def _make_representation(self): # TODO: smt
     #     return Board(self.formulaLst[self.curFmID], self.moves_str)

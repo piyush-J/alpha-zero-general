@@ -102,12 +102,12 @@ class NNetWrapper(NeuralNet):
         # print(board)
         # preparing input
         # uncomment when incorporating the tokenizer # board = self.tokenizer(board, padding="max_length", truncation=True, return_tensors='pt').to(self.device)
-        
+
         priorActions = board[self.board_x:]
         board = board[:self.board_x]
         board = torch.FloatTensor(board.astype(np.float64))
         priorActions = torch.IntTensor(priorActions.astype(np.int64))
-        if args.cuda: 
+        if args.cuda:
             board = board.contiguous().cuda()
             priorActions = priorActions.contiguous().cuda()
         board = board.view(1, self.board_x)
