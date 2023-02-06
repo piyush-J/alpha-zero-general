@@ -17,7 +17,7 @@ Game class implementation for SMT solving.
 """
 
 MODEL_OUT_FEATURES = 768
-MANUAL_FEATURES = 5
+MANUAL_FEATURES = 25 # change this later
 
 WIN_REWARD = 1
 NOCHANGE_REWARD = -1
@@ -25,7 +25,7 @@ FAIL_REWARD = -1
 GIVEUP_REWARD = -1
 
 STEP_WT = 0
-TIME_WT = 0.00000002
+TIME_WT = 0.00000001
 
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str, stats, tactic_timeout, train = True):
