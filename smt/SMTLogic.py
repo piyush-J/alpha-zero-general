@@ -18,9 +18,9 @@ from z3 import *
 import numpy as np
 import copy
 
-PREV_ACTIONS_EMBED = 2 # number of previous actions you want to include in your embedding for prior actions
+PREV_ACTIONS_EMBED = 1 # number of previous actions you want to include in your embedding for prior actions
 STEP_UPPER_BOUND = 8 # upper bound on the number of steps to take in a game
-TACTIC_TIMEOUT = 10000 # in milliseconds
+# TACTIC_TIMEOUT = 10000 # in milliseconds
 
 def get_rlimit(tmpSolver):
     stats = tmpSolver.statistics()
@@ -42,8 +42,9 @@ class CacheTreeNode():
     #     self.childLst[move] = treeNode
 
 class Board(): # Keep its name as Board for now; may call it goal later
-    def __init__(self, ID, formulaPath, moves_str, cTreeNode, stats):
+    def __init__(self, ID, formulaPath, moves_str, cTreeNode, stats, train):
         "Set up initial board configuration."
+        self.train = train
         self.id = ID
         self.fPath = formulaPath
         self.cacheTN = cTreeNode
@@ -72,29 +73,68 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def get_state(self):
         return str(self.curGoal)
 
+    # currently +1 so that 0 represent no prior action
+    def get_most_recent_action(self):
+        if len(self.priorActions) == 0: return 0
+        return self.moves_str.index(self.priorActions[-1])+1
+
     def get_manual_state(self):
-        p1 = Probe('num-consts')
-        p2 = Probe('num-exprs')
-        p3 = Probe('size')
+
+        # p1 = Probe('num-consts')
+        # p2 = Probe('num-exprs')
+        # p3 = Probe('size')
         # p4 = Probe('is-qfbv-eq')
-        p5 = Probe('is-unbounded')
-        p6 = Probe('is-pb')
-        numConst = p1(self.curGoal)
-        numConst = (numConst-self.stats["num_consts"][0])/(self.stats["num_consts"][1]-self.stats["num_consts"][0])
-        numExpr = p2(self.curGoal)
-        numExpr = (numExpr-self.stats["num_exprs"][0])/(self.stats["num_exprs"][1]-self.stats["num_exprs"][0])
-        numAssert = p3(self.curGoal)
-        numAssert = (numAssert-self.stats["size"][0])/(self.stats["size"][1]-self.stats["size"][0])
-        isUnbound = p5(self.curGoal)
-        isPB = p6(self.curGoal)
-        
-        manual_embed = [numConst, numExpr, numAssert, isUnbound, isPB]
+        # p5 = Probe('is-unbounded')
+        # p6 = Probe('is-pb')
+        #
+        # p7 = Probe('arith-max-deg')
+        # p8 = Probe('arith-avg-deg')
+        # p9 = Probe('arith-max-bw')
+        # p10 = Probe('arith-avg-bw')
+        # p11 = Probe('is-qflia')
+        # p12 = Probe('is-qflra')
+        # p13 = Probe('is-qflira')
+        # p14 = Probe('is-qfnia')
+        # p15 = Probe('is-qfnra')
+        # p16 = Probe('memory')
+        # p17 = Probe('depth')
+        # p18 = Probe('num-bool-consts')
+        # p19 = Probe('num-arith-consts')
+        # p20 = Probe('num-bv-consts')
+        # p21 = Probe('has-quantifiers')
+        # p22 = Probe('has-patterns')
+        # p23 = Probe('is-propositional')
+        # p24 = Probe('is-qfbv')
+        # p25 = Probe('is-quasi-pb')
+
+        # numConst = p1(self.curGoal)
+        # numConst = (numConst-self.stats["num_consts"][0])/(self.stats["num_consts"][1]-self.stats["num_consts"][0])
+        # numExpr = p2(self.curGoal)
+        # numExpr = (numExpr-self.stats["num_exprs"][0])/(self.stats["num_exprs"][1]-self.stats["num_exprs"][0])
+        # numAssert = p3(self.curGoal)
+        # numAssert = (numAssert-self.stats["size"][0])/(self.stats["size"][1]-self.stats["size"][0])
+        # is_qfbv_eq = p4(self.curGoal)
+        # isUnbound = p5(self.curGoal)
+        # is_pb = p6(self.curGoal)
+
+        probeStrLst = ['is-unbounded', 'is-pb', 'arith-max-deg', 'arith-avg-deg', 'arith-max-bw', 'arith-avg-bw', 'is-qflia',
+            'is-qflra', 'is-qflira', 'is-qfnia', 'is-qfnra', 'memory', 'depth', 'size', 'num-exprs', 'num-consts', 'num-bool-consts', 'num-arith-consts', 'num-bv-consts', 'has-quantifiers',
+            'has-patterns', 'is-propositional', 'is-qfbv', 'is-qfaufbv', 'is-quasi-pb']
+
+        measureLst = []
+
+        for pStr in probeStrLst:
+            p = Probe(pStr)
+            measure = p(self.curGoal)
+            if pStr in self.stats:
+                measure = (measure-self.stats[pStr][0])/(self.stats[pStr][1]-self.stats[pStr][0])
+            measureLst.append(measure)
         
         priorActionsInt = [self.moves_str.index(act)+1 for act in self.priorActions] # +1 to avoid 0 (0 is reserved for padding)
         priorActionsInt = priorActionsInt[-(PREV_ACTIONS_EMBED):] # only keep the last PREV_ACTIONS_EMBED actions
         prior_actions_padded = priorActionsInt + [0] * (PREV_ACTIONS_EMBED - len(priorActionsInt))
-        
-        return np.array(manual_embed + prior_actions_padded)
+
+        return np.array(measureLst + prior_actions_padded)
 
     def get_time(self):
         return self.accRLimit
@@ -112,55 +152,19 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return self.step > STEP_UPPER_BOUND
 
     def is_done(self):
-        return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
+        if self.train:
+            return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
+        return self.is_win() or self.is_giveup()
 
-    # outdated: no include caching
-    def execute_move_acc(self, move):
-        """Perform the given move on the board using a chain of tactics from the intial formula
-        """
-        # print(type(self.curGoal))
-        result = copy.deepcopy(self)
-        prevGoalStr = str(self.curGoal)
-        result.priorActions.append(self.moves_str[move])
-        # result.priorMoves.append(move)
-
-        tCombined = Tactic(result.priorActions[0])
-        for tStr in result.priorActions[1:]:
-            t = Tactic(tStr)
-            tCombined = Then(tCombined, t)
-        tmp = z3.Solver()
-        rlimit_before = get_rlimit(tmp)
-        tTimed = TryFor(tCombined, TACTIC_TIMEOUT)
-        try:
-            tResult = tTimed(self.initGoal)
-
-            assert(len(tResult) == 1)
-            result.curGoal = tResult[0]
-            if prevGoalStr == str(result.curGoal):
-                result.nochange = True
-        except Z3Exception:
-            result.failed = True
-        # t = Tactic(self.moves_str[move])
-        # print("Initial goal")
-        # print(self.curGoal)
-        # output = t(self.curGoal)
-        # result.curGoal = z3.Goal()
-        # result.curGoal.add(output.as_expr()) # try outGoal[0]
-        # print(type(self.curGoal))
-        # print("after the move: " + move)
-        # print(self.curGoal)
-        rlimit_after = get_rlimit(tmp)
-        result.accRLimit = rlimit_after - rlimit_before # after applying a tacic(s), accRLimit stores the accumulated (from initial goad to current) resource usage (not in the case of tactic failure)
-        result.step = result.step + 1
-        return result
-
-    def transformNextState(self, move):
-        self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
+    # with the current caching design, timeout cannot be changed for a formula
+    def transformNextState(self, move, timeout):
+        if self.train:
+            self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
         # print(self.moves_str[move])
         t = Tactic(self.moves_str[move])
         self.priorActions.append(self.moves_str[move])
         # self.priorMoves.append(move)
-        tTimed = TryFor(t, TACTIC_TIMEOUT)
+        tTimed = TryFor(t, timeout * 1000)
         prevGoalStr = str(self.curGoal)
         tmp = z3.Solver()
         rlimit_before = get_rlimit(tmp)
@@ -177,16 +181,17 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.accRLimit += self.rlimit
         self.step = self.step + 1
 
-    def execute_move(self, move):
+
+    def execute_move(self, move, timeout):
         """Perform the given move on the board and return the result board
         """
         assert(not self.is_done())
-        if self.cacheTN.childLst[move] is not None:
-            # print("find cache")
+        if (self.train) and (self.cacheTN.childLst[move] is not None):
             return self.cacheTN.childLst[move].board
         # print("no cache")
         result = copy.deepcopy(self)
-        result.transformNextState(move)
+        result.transformNextState(move, timeout)
         # remember to update the cahce tree
-        self.cacheTN.childLst[move] = result.cacheTN
+        if self.train:
+            self.cacheTN.childLst[move] = result.cacheTN
         return result

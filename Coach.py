@@ -12,6 +12,7 @@ from tqdm import tqdm
 from Arena import PlanningArena
 from MCTS import MCTS
 
+
 log = logging.getLogger(__name__)
 
 import functools
@@ -148,6 +149,7 @@ class Coach():
                 f.write(f'Starting Iter #{i} ...\n')
                 f.close()
             # examples of the iteration
+            self.game.setNextFmID()
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
@@ -175,16 +177,13 @@ class Coach():
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.pnet, self.args, self.filename)
 
             self.nnet.train(trainExamples)
-            nmcts = MCTS(self.nnet, self.args, self.filename)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
 
-            arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    self.game_validation, display=print, filename=self.filename, log_to_file=self.log_to_file, iter=i)
+            # TO-DO: update the variable name "filename"
+            arena = PlanningArena(self.pnet, self.nnet, self.game_validation, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=i)
             prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
             log.info('NEW/PREV WINING COUNTS : %d / %d' % (nrewards, prewards))
@@ -225,7 +224,7 @@ class Coach():
         filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
         with open(filename, "wb+") as f:
             Pickler(f).dump(self.trainExamplesHistory)
-        f.closed
+        f.closed #closed?
 
     def loadTrainExamples(self):
         modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
