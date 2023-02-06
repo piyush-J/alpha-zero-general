@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from .SMTLogic import STEP_UPPER_BOUND
+from .SMTLogic import PREV_ACTIONS_EMBED
 
 from transformers import DistilBertTokenizer, DistilBertModel, AutoModelForSequenceClassification
 
@@ -35,7 +35,7 @@ class SMTNNet(nn.Module):
         # self.bn3 = nn.BatchNorm2d(args.num_channels)
         # self.bn4 = nn.BatchNorm2d(args.num_channels)
 
-        self.fc11 = nn.Linear(self.args.embedding_size*(STEP_UPPER_BOUND+1), 64)
+        self.fc11 = nn.Linear(self.args.embedding_size*(PREV_ACTIONS_EMBED), 64)
         self.fc_bn11 = nn.BatchNorm1d(64)
 
         self.fc12 = nn.Linear(self.board_x, 64)

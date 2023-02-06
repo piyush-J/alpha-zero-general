@@ -18,7 +18,8 @@ from z3 import *
 import numpy as np
 import copy
 
-STEP_UPPER_BOUND = 8
+PREV_ACTIONS_EMBED = 2 # number of previous actions you want to include in your embedding for prior actions
+STEP_UPPER_BOUND = 8 # upper bound on the number of steps to take in a game
 TACTIC_TIMEOUT = 10000 # in milliseconds
 
 def get_rlimit(tmpSolver):
@@ -87,10 +88,13 @@ class Board(): # Keep its name as Board for now; may call it goal later
         isUnbound = p5(self.curGoal)
         isPB = p6(self.curGoal)
         
-        priorActionsInt = [self.moves_str.index(act)+1 for act in self.priorActions] # +1 to avoid 0 (0 is reserved for padding)
-        prior_actions_padded = priorActionsInt + [0] * (STEP_UPPER_BOUND - len(priorActionsInt) + 1)
+        manual_embed = [numConst, numExpr, numAssert, isUnbound, isPB]
         
-        return np.array([numConst, numExpr, numAssert, isUnbound, isPB] + prior_actions_padded)
+        priorActionsInt = [self.moves_str.index(act)+1 for act in self.priorActions] # +1 to avoid 0 (0 is reserved for padding)
+        priorActionsInt = priorActionsInt[-(PREV_ACTIONS_EMBED):] # only keep the last PREV_ACTIONS_EMBED actions
+        prior_actions_padded = priorActionsInt + [0] * (PREV_ACTIONS_EMBED - len(priorActionsInt))
+        
+        return np.array(manual_embed + prior_actions_padded)
 
     def get_time(self):
         return self.accRLimit
