@@ -148,7 +148,6 @@ class SMTGame(Game):
         """
         return [(board, pi)]
 
-    # John: is this used?
     def stringRepresentation(self, board): # TODO
         """
         Input:
@@ -159,5 +158,4 @@ class SMTGame(Game):
                          Required by MCTS for hashing.
         """
         # return board.tobytes()s
-        return np.array2string(board.get_manual_state(), precision=2, separator=',',
-                      suppress_small=True) + " " + str(board.is_done())
+        return str(board.curGoal) + " " + str(board.is_done())

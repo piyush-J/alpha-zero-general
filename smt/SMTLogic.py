@@ -79,61 +79,19 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return self.moves_str.index(self.priorActions[-1])+1
 
     def get_manual_state(self):
-
-        # p1 = Probe('num-consts')
-        # p2 = Probe('num-exprs')
-        # p3 = Probe('size')
-        # p4 = Probe('is-qfbv-eq')
-        # p5 = Probe('is-unbounded')
-        # p6 = Probe('is-pb')
-        #
-        # p7 = Probe('arith-max-deg')
-        # p8 = Probe('arith-avg-deg')
-        # p9 = Probe('arith-max-bw')
-        # p10 = Probe('arith-avg-bw')
-        # p11 = Probe('is-qflia')
-        # p12 = Probe('is-qflra')
-        # p13 = Probe('is-qflira')
-        # p14 = Probe('is-qfnia')
-        # p15 = Probe('is-qfnra')
-        # p16 = Probe('memory')
-        # p17 = Probe('depth')
-        # p18 = Probe('num-bool-consts')
-        # p19 = Probe('num-arith-consts')
-        # p20 = Probe('num-bv-consts')
-        # p21 = Probe('has-quantifiers')
-        # p22 = Probe('has-patterns')
-        # p23 = Probe('is-propositional')
-        # p24 = Probe('is-qfbv')
-        # p25 = Probe('is-quasi-pb')
-
-        # numConst = p1(self.curGoal)
-        # numConst = (numConst-self.stats["num_consts"][0])/(self.stats["num_consts"][1]-self.stats["num_consts"][0])
-        # numExpr = p2(self.curGoal)
-        # numExpr = (numExpr-self.stats["num_exprs"][0])/(self.stats["num_exprs"][1]-self.stats["num_exprs"][0])
-        # numAssert = p3(self.curGoal)
-        # numAssert = (numAssert-self.stats["size"][0])/(self.stats["size"][1]-self.stats["size"][0])
-        # is_qfbv_eq = p4(self.curGoal)
-        # isUnbound = p5(self.curGoal)
-        # is_pb = p6(self.curGoal)
-
         probeStrLst = ['is-unbounded', 'is-pb', 'arith-max-deg', 'arith-avg-deg', 'arith-max-bw', 'arith-avg-bw', 'is-qflia',
             'is-qflra', 'is-qflira', 'is-qfnia', 'is-qfnra', 'memory', 'depth', 'size', 'num-exprs', 'num-consts', 'num-bool-consts', 'num-arith-consts', 'num-bv-consts', 'has-quantifiers',
             'has-patterns', 'is-propositional', 'is-qfbv', 'is-qfaufbv', 'is-quasi-pb']
-
         measureLst = []
-
         for pStr in probeStrLst:
             p = Probe(pStr)
             measure = p(self.curGoal)
             if pStr in self.stats:
                 measure = (measure-self.stats[pStr][0])/(self.stats[pStr][1]-self.stats[pStr][0])
             measureLst.append(measure)
-        
         priorActionsInt = [self.moves_str.index(act)+1 for act in self.priorActions] # +1 to avoid 0 (0 is reserved for padding)
         priorActionsInt = priorActionsInt[-(PREV_ACTIONS_EMBED):] # only keep the last PREV_ACTIONS_EMBED actions
         prior_actions_padded = priorActionsInt + [0] * (PREV_ACTIONS_EMBED - len(priorActionsInt))
-
         return np.array(measureLst + prior_actions_padded)
 
     def get_time(self):

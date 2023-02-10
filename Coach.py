@@ -31,6 +31,8 @@ class Coach():
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
+        self.val_total_timeout = self.args.val_total_timeout
+        self.sample_size = self.args.sample_number_val
         self.log_to_file = self.args.log_to_file
         self.filename = "out-{date:%Y-%m-%d_%H-%M-%S}.log".format(date=datetime.datetime.now())
         self.mcts = MCTS(self.nnet, self.args, self.filename)
@@ -184,19 +186,20 @@ class Coach():
             log.info('PITTING AGAINST PREVIOUS VERSION')
 
             if prewards is None:
-                arena = PlanningArena(self.pnet, self.game_validation, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=2)
+                arena = PlanningArena(self.pnet, self.game_validation, self.val_total_timeout, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=self.sample_size)
                 prewards = arena.playGames(self.args.arenaCompare, verbose=False)
             # TO-DO: update the variable name "filename"
-            # iter: sample size of evaluation results
-            arena = PlanningArena(self.nnet, self.game_validation, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=2)
+            # iter: sample size of evaluation results #To-do: make it to json
+            arena = PlanningArena(self.nnet, self.game_validation, self.val_total_timeout, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=self.sample_size)
             nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
-            log.info('NEW/PREV WINING COUNTS : %d / %d' % (nrewards, prewards))
-            if nrewards <= prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
+            log.info(f"NEW/PREV WINING COUNTS : {nrewards} / {prewards}")
+            if (nrewards[0] < prewards[0]) or ((nrewards[0] == prewards[0]) and (nrewards[1] >= prewards[1])):
                 log.info('REJECTING NEW MODEL')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:
                 log.info('ACCEPTING NEW MODEL')
+                prewards = nrewards
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
