@@ -141,6 +141,7 @@ class Coach():
         only if it wins >= updateThreshold fraction of games.
         """
 
+        prewards = None
         for i in range(1, self.args.numIters + 1):
             # bookkeeping
             log.info(f'Starting Iter #{i} ...')
@@ -182,9 +183,13 @@ class Coach():
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
 
+            if prewards is None:
+                arena = PlanningArena(self.pnet, self.game_validation, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=2)
+                prewards = arena.playGames(self.args.arenaCompare, verbose=False)
             # TO-DO: update the variable name "filename"
-            arena = PlanningArena(self.pnet, self.nnet, self.game_validation, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=i)
-            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
+            # iter: sample size of evaluation results
+            arena = PlanningArena(self.nnet, self.game_validation, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=2)
+            nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
             log.info('NEW/PREV WINING COUNTS : %d / %d' % (nrewards, prewards))
             if nrewards <= prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:

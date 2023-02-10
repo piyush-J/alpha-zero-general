@@ -13,7 +13,7 @@ TOTAL_TIMEOUT = 60 # move it to json later
 
 class PlanningArena():
 
-    def __init__(self, nn1, nn2, game, display=None, log_file='out.txt', log_to_file=False, iter=0):
+    def __init__(self, nnet, game, display=None, log_file='out.txt', log_to_file=False, iter=1):
         """
         Input:
             agent 1,2: two functions that takes board as input, return action
@@ -83,27 +83,17 @@ class PlanningArena():
         f = open(self.log_file,'a+')
         f.write("Agent 1 (prev): \n")
         f.close()
-        for i in tqdm(range(num), desc="Arena.playGames1"):
-            f = open(self.log_file,'a+')
-            f.write("Iteration " + str(i) + "\n")
-            f.close()
-            result, rlimit, time_res = self.playGame(self.nn1, self.game, verbose=verbose)
-            if not result is None:
-                policy1Solved += 1
-                policy1TotalTime += time_res
+
         self.game.setNextFmID()
-        f = open(self.log_file,'a+')
-        f.write("Agent 2 (new): \n")
-        f.close()
-        for i in tqdm(range(num), desc="Arena.playGames2"):
-            f = open(self.log_file,'a+')
-            f.write("Iteration " + str(i) + "\n")
-            f.close()
-            result, rlimit, time_res = self.playGame(self.nn2, self.game, verbose=verbose)
-            if not result is None:
-                policy2Solved += 1
-                policy2TotalTime += time_res
-        self.game.setNextFmID()
+        for it in range(self.iter):
+            for i in tqdm(range(num), desc="Arena.playGames"):
+                f = open(self.log_file,'a+')
+                f.write("Iteration " + str(i) + "\n")
+                f.close()
+                result, rlimit, time_res = self.playGame(self.nn2, self.game, verbose=verbose)
+                if not result is None:
+                    policy2Solved += 1
+                    policy2TotalTime += time_res
         # print("Agent1 results: " + str(agent1Results))
         # print("Agent2 results: " + str(agent2Results))
         # agent1Wins = 0
