@@ -25,7 +25,7 @@ FAIL_REWARD = -1
 GIVEUP_REWARD = -1
 
 STEP_WT = 0
-TIME_WT = 0.00000001
+TIME_WT = 0.000000001
 
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str, stats, tactic_timeout, train = True):

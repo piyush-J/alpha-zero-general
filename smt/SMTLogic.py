@@ -18,7 +18,7 @@ from z3 import *
 import numpy as np
 import copy
 
-PREV_ACTIONS_EMBED = 1 # number of previous actions you want to include in your embedding for prior actions
+PREV_ACTIONS_EMBED = 3 # number of previous actions you want to include in your embedding for prior actions
 STEP_UPPER_BOUND = 8 # upper bound on the number of steps to take in a game
 # TACTIC_TIMEOUT = 10000 # in milliseconds
 
