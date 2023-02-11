@@ -31,51 +31,13 @@ class Coach():
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
+        self.val_total_timeout = self.args.val_total_timeout
+        self.sample_size = self.args.sample_number_val
         self.log_to_file = self.args.log_to_file
         self.filename = "out-{date:%Y-%m-%d_%H-%M-%S}.log".format(date=datetime.datetime.now())
         self.mcts = MCTS(self.nnet, self.args, self.filename)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
-
-
-    # def executeEpisode(self):
-    #     """
-    #     This function executes one episode of self-play, starting with player 1.
-    #     As the game is played, each turn is added as a training example to
-    #     trainExamples. The game is played till the game ends. After the game
-    #     ends, the outcome of the game is used to assign values to each example
-    #     in trainExamples.
-
-    #     It uses a temp=1 if episodeStep < tempThreshold, and thereafter
-    #     uses temp=0.
-
-    #     Returns:
-    #         trainExamples: a list of examples of the form (canonicalBoard, currPlayer, pi,v)
-    #                        pi is the MCTS informed policy vector, v is +1 if
-    #                        the player eventually won the game, else -1.
-    #     """
-    #     trainExamples = []
-    #     board = self.game.getInitBoard()
-    #     self.curPlayer = 1
-    #     episodeStep = 0
-
-    #     while True:
-    #         episodeStep += 1
-    #         canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
-    #         temp = int(episodeStep < self.args.tempThreshold)
-
-    #         pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-    #         sym = self.game.getSymmetries(canonicalBoard, pi)
-    #         for b, p in sym:
-    #             trainExamples.append([b, self.curPlayer, p, None])
-
-    #         action = np.random.choice(len(pi), p=pi)
-    #         board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
-
-    #         r = self.game.getGameEnded(board, self.curPlayer)
-
-    #         if r != 0:
-    #             return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
 
     def executeEpisode(self):
         """
@@ -141,6 +103,7 @@ class Coach():
         only if it wins >= updateThreshold fraction of games.
         """
 
+        prewards = None
         for i in range(1, self.args.numIters + 1):
             # bookkeeping
             log.info(f'Starting Iter #{i} ...')
@@ -182,16 +145,21 @@ class Coach():
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
 
+            if prewards is None:
+                arena = PlanningArena(self.pnet, self.game_validation, self.val_total_timeout, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=self.sample_size)
+                prewards = arena.playGames(self.args.arenaCompare, verbose=False)
             # TO-DO: update the variable name "filename"
-            arena = PlanningArena(self.pnet, self.nnet, self.game_validation, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=i)
-            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
+            # iter: sample size of evaluation results #To-do: make it to json
+            arena = PlanningArena(self.nnet, self.game_validation, self.val_total_timeout, display=print, log_file=self.filename, log_to_file=self.log_to_file, iter=self.sample_size)
+            nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
-            log.info('NEW/PREV WINING COUNTS : %d / %d' % (nrewards, prewards))
-            if nrewards <= prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
+            log.info(f"NEW/PREV WINING COUNTS : {nrewards} / {prewards}")
+            if (nrewards[0] < prewards[0]) or ((nrewards[0] == prewards[0]) and (nrewards[1] >= prewards[1])):
                 log.info('REJECTING NEW MODEL')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:
                 log.info('ACCEPTING NEW MODEL')
+                prewards = nrewards
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 

@@ -25,7 +25,7 @@ FAIL_REWARD = -1
 GIVEUP_REWARD = -1
 
 STEP_WT = 0
-TIME_WT = 0.00000001
+TIME_WT = 0.000000001
 
 class SMTGame(Game):
     def __init__(self, benchmarkPath, ext, moves_str, stats, tactic_timeout, train = True):
@@ -148,7 +148,6 @@ class SMTGame(Game):
         """
         return [(board, pi)]
 
-    # John: is this used?
     def stringRepresentation(self, board): # TODO
         """
         Input:
@@ -159,5 +158,4 @@ class SMTGame(Game):
                          Required by MCTS for hashing.
         """
         # return board.tobytes()s
-        return np.array2string(board.get_manual_state(), precision=2, separator=',',
-                      suppress_small=True) + " " + str(board.is_done())
+        return str(board.curGoal) + " " + str(board.is_done())
