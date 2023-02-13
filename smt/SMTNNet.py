@@ -34,8 +34,13 @@ class SMTNNet(nn.Module):
         # self.bn2 = nn.BatchNorm2d(args.num_channels)
         # self.bn3 = nn.BatchNorm2d(args.num_channels)
         # self.bn4 = nn.BatchNorm2d(args.num_channels)
+        
+        if self.args.one_hot:
+            self.embedding_size = self.action_size + 1 # one-hot, in case of embedding layer use self.args.embedding_size
+        else:
+            self.embedding_size = self.args.embedding_size
 
-        self.fc11 = nn.Linear(self.args.embedding_size*(PREV_ACTIONS_EMBED), 64)
+        self.fc11 = nn.Linear(self.embedding_size*(PREV_ACTIONS_EMBED), 64)
         self.fc_bn11 = nn.BatchNorm1d(64)
 
         self.fc12 = nn.Linear(self.board_x, 64)
@@ -59,7 +64,11 @@ class SMTNNet(nn.Module):
 
         # s = self.pretrained_model(**s)[0] # batch_size x 768
         # e = self.embeddings(prior_a) # batch_size x size of the prior action sequence x embedding_size
-        e = self.embeddings(prior_a)
+        
+        if self.args.one_hot:
+            e = F.one_hot(prior_a.to(torch.int64), num_classes = self.embedding_size).to(torch.float32)
+        else:
+            e = self.embeddings(prior_a)
         e = torch.reshape(e, (e.shape[0], -1)) # batch_size x (embedding_size * size of the prior action sequence)
         e = F.dropout(F.relu(self.fc_bn11(self.fc11(e))), p=self.args.dropout, training=self.training)  # batch_size x 64
         s = F.dropout(F.relu(self.fc_bn12(self.fc12(s))), p=self.args.dropout, training=self.training)  # batch_size x 64
