@@ -27,7 +27,7 @@ class MyTransformerEncoder(nn.Module):
         super().__init__()
         self.model_type = 'Transformer'
         self.pos_encoder = PositionalEncoding(d_model, dropout)
-        encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout)
+        encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout, batch_first=True)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
         self.encoder = nn.Embedding(ntoken, d_model, padding_idx=0)
         self.d_model = d_model
@@ -63,7 +63,7 @@ class PositionalEncoding(nn.Module):
         Args:
             x: Tensor, shape [seq_len, batch_size, embedding_dim]
         """
-        x = x + self.pe[:x.size(0)] #  pe is a buffer, so we can access it with self.pe, ignore the IDE warning
+        x = x + self.pe[:x.size(0)] # pe is a buffer, so we can access it with self.pe, ignore the IDE warning
         return self.dropout(x)
 
 class SMTNNet(nn.Module):
@@ -124,7 +124,7 @@ class SMTNNet(nn.Module):
         # e = self.embeddings(prior_a) # batch_size x size of the prior action sequence x embedding_size
         
         if self.args.one_hot:
-            e = F.one_hot(prior_a.to(torch.int64), num_classes = self.embedding_size).to(torch.float32) 
+            e = F.one_hot(prior_a.to(torch.int64), num_classes = self.embedding_size).to(torch.float64) 
         else: # embedding
             if self.args.time_series:
                 e = self.transformer_encoder(prior_a) # e: batch_size x size of the prior action sequence x embedding_size
