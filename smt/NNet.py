@@ -28,7 +28,8 @@ args = dotdict({
     'cuda': torch.cuda.is_available(),
     'num_channels': 512,
     'embedding_size': 128,
-    'one_hot': True,
+    'one_hot': False,
+    'time_series': True, # only works for embedding layer (one-hot = False)
 })
 
 class NNetWrapper(NeuralNet):
