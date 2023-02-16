@@ -38,12 +38,12 @@ class MCTS():
                    proportional to Nsa[(s,a)]**(1./temp)
         """
         canonicalBoard = game.getCanonicalForm(board)
-
+        with open(self.filename,'a+') as f:
+            f.write(f"\ngetActionprob() starts:\n")
         for i in range(self.args.numMCTSSims):
             if self.log_to_file:
-                f = open(self.filename,'a+')
-                f.write(f"Start search no. {i}\n")
-                f.close()
+                with open(self.filename,'a+') as f:
+                    f.write(f"Start Sim no. {i}\n")
             self.search(game, canonicalBoard)
 
         s = game.stringRepresentation(canonicalBoard)
@@ -93,6 +93,9 @@ class MCTS():
         #print("1: ", time.time()-start_time)
 
         s = game.stringRepresentation(canonicalBoard)
+        if self.log_to_file:
+            with open(self.filename,'a+') as f:
+                f.write(f"\nStart search with {s}\n")
 
         if verbose:
             log.info(f"At level {level}\n{s}")
@@ -100,6 +103,9 @@ class MCTS():
         if s not in self.Es: # STEP 2: EXPANSION
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
+            if self.log_to_file:
+                with open(self.filename,'a+') as f:
+                    f.write(f"\nNode not yet seen\n")
             self.Es[s] = game.getGameEnded(canonicalBoard)
 
         #print("2: ", time.time()-start_time)
@@ -123,6 +129,8 @@ class MCTS():
             # leaf node
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
+            with open(self.filename,'a+') as f:
+                f.write(f"Node is leaf node, using NN to predict value\n")
             self.Ps[s], v = self.nnet.predict(canonicalBoard.get_manual_state()) # plays a role in calculating UCB too
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
@@ -174,9 +182,8 @@ class MCTS():
             log.info(f"Non-leaf node, considering action {a} resulting in {next_s}\n")
 
         if self.log_to_file:
-            f = open(self.filename,'a+')
-            f.write(f"Non-leaf node, considering action {a} resulting in{next_s}\n")
-            f.close()
+            with open(self.filename,'a+') as f:
+                f.write(f"Non-leaf node, considering action {a} resulting in {next_s}\n")
         #print("6: ", time.time()-start_time)
 
         v = self.search(game_copy, next_s, level=level+1)
