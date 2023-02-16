@@ -4,9 +4,9 @@ import coloredlogs
 
 from Coach import Coach
 
-from qzero_planning.NNet import NNetWrapper as pnn
-from qzero_planning.PlanningGame import PlanningGame
-from qzero_planning.PlanningLogic import DomainAction, MinSpanTimeRewardStrategy, RelativeProductRewardStrategy
+from ksgraph.NNet import NNetWrapper as pnn
+from ksgraph.KSGame import PlanningGame
+from ksgraph.KSLogic import DomainAction, MinSpanTimeRewardStrategy, RelativeProductRewardStrategy
 
 from utils import *
 

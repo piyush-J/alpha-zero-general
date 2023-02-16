@@ -1,5 +1,5 @@
 from Game import Game
-from .PlanningLogic import PlanningRepresentation
+from .KSLogic import PlanningRepresentation
 import numpy as np
 from sympy.utilities.iterables import multiset_permutations
 
