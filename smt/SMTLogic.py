@@ -52,8 +52,9 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.moves_str = moves_str
         self.stats = stats
         # Create the empty board array.
-        self.formula = z3.parse_smt2_file(formulaPath) # maynot need to store this
-        self.initGoal = z3.Goal()
+        self.cntx = Context()
+        self.formula = z3.parse_smt2_file(formulaPath, ctx=self.cntx) # maynot need to store this
+        self.initGoal = z3.Goal(ctx=self.cntx)
         self.initGoal.add(self.formula)
         self.curGoal = self.initGoal
         self.step = 0 # number of times tactics have already been applied
@@ -65,6 +66,14 @@ class Board(): # Keep its name as Board for now; may call it goal later
 
     def __str__(self): # when you print board object
         return f"fID: {self.id}; fPath: {self.fPath}; Embedding: {self.get_manual_state()}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
+
+    # mixed shallow&deep copy
+    def get_copy(self):
+        copied = copy.copy(self)
+        # it is not important how to take care of self.cacheTN as it's taken care of in transformNextState()
+        copied.curGoal = copy.deepcopy(copied.curGoal)
+        copied.priorActions = copy.copy(copied.priorActions)
+        return copied
 
     def get_legal_moves(self): # Not required for this game, but may be useful for other games
         if self.is_done():
@@ -119,12 +128,12 @@ class Board(): # Keep its name as Board for now; may call it goal later
         if self.train:
             self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
         # print(self.moves_str[move])
-        t = Tactic(self.moves_str[move])
+        t = Tactic(self.moves_str[move], ctx = self.cntx)
         self.priorActions.append(self.moves_str[move])
         # self.priorMoves.append(move)
         tTimed = TryFor(t, timeout * 1000)
         prevGoalStr = str(self.curGoal)
-        tmp = z3.Solver()
+        tmp = z3.Solver(ctx = self.cntx)
         rlimit_before = get_rlimit(tmp)
         try:
             tResult = tTimed(self.curGoal)
@@ -147,7 +156,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         if (self.train) and (self.cacheTN.childLst[move] is not None):
             return self.cacheTN.childLst[move].board
         # print("no cache")
-        result = copy.deepcopy(self)
+        result = self.get_copy()
         result.transformNextState(move, timeout)
         # remember to update the cahce tree
         if self.train:

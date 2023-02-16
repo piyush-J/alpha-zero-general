@@ -14,17 +14,17 @@ class MCTS():
     This class handles the MCTS tree.
     """
 
-    def __init__(self, nnet, args, filename='out.txt'): #TO_DO: change the filename variable name related to output
+    def __init__(self, nnet, args, filename):
         # self.game = game.get_copy()
         self.filename = filename
         self.nnet = nnet
         self.args = args
+        # self.context = cntx
         self.log_to_file = self.args.log_to_file
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
         self.Nsa = {}  # stores #times edge s,a was visited
         self.Ns = {}  # stores #times board s was visited
         self.Ps = {}  # stores initial policy (returned by neural net)
-
         self.Es = {}  # stores game.getGameEnded ended for board s
         self.Vs = {}  # stores game.getValidMoves for board s
 
@@ -39,12 +39,19 @@ class MCTS():
         """
         canonicalBoard = game.getCanonicalForm(board)
 
-        for _ in range(self.args.numMCTSSims):
+        for i in range(self.args.numMCTSSims):
+            if self.log_to_file:
+                f = open(self.filename,'a+')
+                f.write(f"Start search no. {i}\n")
+                f.close()
             self.search(game, canonicalBoard)
 
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
-        # print(f"counts: {counts}")
+        if self.log_to_file:
+            f = open(self.filename,'a+')
+            f.write(f"After search, counts: {counts}\n")
+            f.close()
 
         if temp == 0:
             bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
@@ -54,6 +61,10 @@ class MCTS():
             return probs
 
         counts = [x ** (1. / temp) for x in counts]
+        if self.log_to_file:
+            f = open(self.filename,'a+')
+            f.write(f"After temp, counts: {counts}\n")
+            f.close()
         counts_sum = float(sum(counts))
         probs = [x / counts_sum for x in counts]
         return probs
@@ -160,8 +171,12 @@ class MCTS():
         next_s = game_copy.getNextState(canonicalBoard, a)
         # next_s = self.game.getCanonicalForm(next_s)
         if verbose:
-            log.info(f"Non-leaf node, considering action {a} resulting in\n{next_s}")
+            log.info(f"Non-leaf node, considering action {a} resulting in {next_s}\n")
 
+        if self.log_to_file:
+            f = open(self.filename,'a+')
+            f.write(f"Non-leaf node, considering action {a} resulting in{next_s}\n")
+            f.close()
         #print("6: ", time.time()-start_time)
 
         v = self.search(game_copy, next_s, level=level+1)

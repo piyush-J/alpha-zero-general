@@ -21,33 +21,32 @@ stats = {
     "num-arith-consts": [0, 1000]
 }
 
-g = SMTGame(benchmarkPath = "smt/example/qf_nia/john2/test/", ext = "smt2", moves_str = moves_str, stats = stats, tactic_timeout = 60)
+g = SMTGame(benchmarkPath = "smt/example/qf_nia/john/test/", ext = "smt2", moves_str = moves_str, stats = stats, tactic_timeout = 60)
 
 nnet = snn(g)
 nnet.load_checkpoint("./temp/", "best.pth.tar")
 
 fLst = []
-for fm in sorted(glob.glob("smt/example/qf_nia/john2/test/*.smt2")):
+for fm in sorted(glob.glob("smt/example/qf_nia/john/test/*.smt2")):
     fLst.append(fm)
 
 time_out = 180 #seconds
 # threads = []
 
-with open("policy_eval_Feb9_2.csv", 'w') as f:
+with open("policy_eval_Feb12.csv", 'w') as f:
     counter = 0
     header = ['formula_id', 'res', 'rlimit', 'runtime', 'nn_time', 'solver_time']
     writer = csv.writer(f)
     writer.writerow(header)
     for fPath in fLst:
         # stratgies: "smt" "(then simplify smt)"
-        if counter > 106:
-            bd = Board(counter, fPath, moves_str, None, stats, False)
-            thread = Runner(nnet, bd, 180, 60, True, "log_file_0209.txt")
-            thread.start() #not pararell now
-            thread.join(180)
-            res, rlimit, runtime, nn_time, solver_time = thread.collect()
-            r = [counter, res, rlimit, runtime, nn_time, solver_time]
-            print(r)
-            writer.writerow(r)
-            f.flush()
-            counter += 1
+        bd = Board(counter, fPath, moves_str, None, stats, False)
+        thread = Runner(nnet, bd, 180, 60, True, "log_file_0212.txt")
+        thread.start() #not pararell now
+        thread.join(180)
+        res, rlimit, runtime, nn_time, solver_time = thread.collect()
+        r = [counter, res, rlimit, runtime, nn_time, solver_time]
+        print(r)
+        writer.writerow(r)
+        f.flush()
+        counter += 1

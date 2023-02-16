@@ -4,7 +4,7 @@ import time
 
 class Runner(threading.Thread):
 
-    def __init__(self, nnet, board, total_timeout, tactic_timeout, log_to_file=False, log_file='out.txt'): # may do something to log to a file later
+    def __init__(self, nnet, board, total_timeout, tactic_timeout): # may do something to log to a file later
         threading.Thread.__init__(self)
         self._stop_event = threading.Event()
         self.initialBoard = board # may not need this
@@ -14,8 +14,6 @@ class Runner(threading.Thread):
         self.tactic_timeout = tactic_timeout
         self.action_size = len(board.moves_str)
         self.solved = False
-        self.log_to_file = log_to_file
-        self.log_file = log_file
         self.timeed_out = False
         self.nn_time = 0
         self.solver_time = 0
@@ -56,18 +54,14 @@ class Runner(threading.Thread):
             self.stop()
             self.join()
             self.timeed_out = True
-        if self.log_to_file:
-            f = open(self.log_file,'a+')
-            f.write(str(self.curBoard)+"\n")
-            f.write(f"Actions: {self.curBoard.priorActions}\n")
-            if self.solved:
-                f.write(f"Result: {self.result}, rlimit: {self.rlimit}, time: {self.s_time}\n\n")
-            elif self.timeed_out:
-                f.write("timed out\n\n")
-            else:
-                f.write("step limit? unknow?\n\n")
-            f.close()
+        log_text = f"{self.curBoard}\nActions: {self.curBoard.priorActions}\n"
         if self.solved:
-            return self.result, self.rlimit, self.s_time, self.nn_time, self.solver_time
+            log_text += f"Result: {self.result}, rlimit: {self.rlimit}, time: {self.s_time}\n\n"
+        elif self.timeed_out:
+            log_text += "timed out\n\n"
+        else:
+            log_text += "step limit? unknow?\n\n"
+        if self.solved:
+            return self.result, self.rlimit, self.s_time, self.nn_time, self.solver_time, log_text
         # explore when will come to here
-        return None, None, None, None, None
+        return None, None, None, None, None, log_text

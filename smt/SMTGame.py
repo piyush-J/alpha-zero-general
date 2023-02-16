@@ -39,13 +39,11 @@ class SMTGame(Game):
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later John: how
         assert(self.action_size > 1)
-        for f in glob.glob(f"{self.bPath}/*.{self.ext}"):
+        for f in sorted(glob.glob(f"{self.bPath}/*.{self.ext}")):
             self.formulaLst.append(f)
             self.forest.append(CacheTreeNode(num_moves = self.action_size))
         self.fSize = len(self.formulaLst)
         if self.fSize < 1: raise Exception("No smt file in the folder")
-        # self.curFmID = -1 # may not need
-        self.nextFmID = 0
         self.accRlimit_all = [] # John: what's this?
 
     # def _make_representation(self): # TODO: smt
@@ -55,22 +53,20 @@ class SMTGame(Game):
         return self
         # copy.deepcopy(self)
 
-    def setNextFmID(self, id = 0): #set self.nextFmID value, and correspondingly, self.curFmID
-        assert(id < self.fSize)
-        self.nextFmID = id
+    # def setNextFmID(self, id = 0): #set self.nextFmID value, and correspondingly, self.curFmID
+    #     assert(id < self.fSize)
+    #     self.nextFmID = id
 
     def getBenchmarkSize(self):
         return self.fSize
 
-    # TODO: check whether need both currentID and nextID
-    def getInitBoard(self):
+    # need to change the overridden function signature in Game.py?
+    def getInitBoard(self, id):
+        assert(id < self.fSize) # may consider reiterate from the beginning when id >= size
         tnode = None
-        if self.train: tnode = self.forest[self.nextFmID]
-        bd = Board(self.nextFmID, self.formulaLst[self.nextFmID], self.moves_str, tnode, self.stats, self.train)
-        # self.curFmID = self.nextFmID
-        if self.nextFmID == self.fSize - 1: self.nextFmID = 0
-        else: self.nextFmID = self.nextFmID + 1
-        return bd # return the board
+        if self.train: tnode = self.forest[id]
+        bd = Board(id, self.formulaLst[id], self.moves_str, tnode, self.stats, self.train)
+        return bd
 
     def getManualEmbedding(self, board):
         return board.get_manual_state()
@@ -126,12 +122,6 @@ class SMTGame(Game):
             board: current board
 
         Returns:
-            canonicalBoard: returns canonical form of board. The canonical form
-                            should be independent of player. For e.g. in chess,
-                            the canonical form can be chosen to be from the pov
-                            of white. When the player is white, we can return
-                            board as is. When the player is black, we can invert
-                            the colors and return the board.
         """
         return board
 
@@ -158,4 +148,4 @@ class SMTGame(Game):
                          Required by MCTS for hashing.
         """
         # return board.tobytes()s
-        return str(board.curGoal) + " " + str(board.is_done())
+        return str(board.priorActions)
