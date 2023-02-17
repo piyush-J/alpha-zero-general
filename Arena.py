@@ -83,10 +83,6 @@ class PlanningArena():
                     if not result is None:
                         solved += 1
                         totalTime += time_res
-                        result, rlimit, time_res = self.playGame(self.nnet, self.game, verbose=verbose)
-                        if not result is None:
-                            solved += 1
-                            totalTime += time_res
             print(f"In iter {it}: {solved} instances solved with total time {totalTime}\n")
             solvedLst.append(solved)
             totalTimeLst.append(totalTime)
