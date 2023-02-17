@@ -1,0 +1,72 @@
+{
+    "training_dir": "smt/example/qf_nia/john/train",
+    "validation_dir": "smt/example/qf_nia/john/validate",
+    "file_ext": "smt2",
+    "train_tactic_timeout": 5,
+    "val_tactic_timeout": 5,
+    "coach_args": {
+        "numIters": 5,
+        "numEps": 5,
+        "tempThreshold": 15,
+        "maxlenOfQueue": 200000,
+        "numMCTSSims": 3,
+        "arenaCompare": 5,
+        "val_total_timeout": 20,
+        "sample_number_val": 2,
+        "train_batch": 2,
+        "val_batch": 3,
+        "cpuct": 1,
+        "checkpoint": "./temp/",
+        "load_model": false,
+        "load_folder_file": ["./temp/","best.pth.tar"],
+        "numItersForTrainExamplesHistory": 20,
+        "log_to_file": 1
+      },
+    "AProVE_min_max": {
+        "arith-max-deg": [0, 15],
+        "arith-avg-deg": [0, 3],
+        "arith-max-bw": [0, 2],
+        "arith-avg-bw": [1, 2],
+        "memory": [15, 20],
+        "size": [4, 6074],
+        "num-exprs": [10, 60000],
+        "num-consts": [0, 1000],
+        "num-arith-consts": [0, 1000]
+    },
+    "tactics_config": {
+        "all_tactics": [
+            "simplify",
+            "smt",
+	    "bit-blast",
+            "propagate-values",
+	    "ctx-simplify",
+            "elim-uncnstr",
+            "solve-eqs",
+	    "lia2card",
+	    "max-bv-sharing",
+	    "nla2bv",
+	    "qfnra-nlsat",
+	    "cofactor-term-ite",
+      "sat"
+	],
+	"allowed_params": {
+	    "simplify": {
+		"boolean": [
+		    "elim_and",
+		    "som",
+		    "blast_distinct",
+		    "flat",
+		    "hi_div0",
+		    "local_ctx",
+		    "hoist_mul"
+		]
+	    },
+	    "nla2bv": {
+		"integer": [
+		    ["nla2bv_max_bv_size", 0, 100]
+		]
+	    }
+
+	}
+    }
+}
