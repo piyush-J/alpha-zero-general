@@ -29,6 +29,10 @@ def get_rlimit(tmpSolver):
             return stats[i][1]
     return 0
 
+def toSMT2Benchmark(f, status="unknown", name="benchmark", logic=""):
+    v = (Ast * 0)()
+    return Z3_benchmark_to_smtlib_string(f.ctx_ref(), name, logic, status, "", 0, v, f.as_ast())
+
 #TO_DO: think more about whether can store/return reference/copy; currently store as reference, return a copy
 class CacheTreeNode():
     def __init__(self, num_moves, bd = None):
@@ -52,13 +56,15 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.moves_str = moves_str
         self.stats = stats
         # Create the empty board array.
-        self.cntx = Context()
-        self.formula = z3.parse_smt2_file(formulaPath, ctx=self.cntx) # maynot need to store this
-        self.initGoal = z3.Goal(ctx=self.cntx)
-        self.initGoal.add(self.formula)
-        self.curGoal = self.initGoal
+        # self.cntx = Context()
+        # self.formula = z3.parse_smt2_file(formulaPath, ctx=self.cntx)
+        # self.initGoal = z3.Goal(ctx=self.cntx)
+        # self.initGoal.add(self.formula)
+        with open(self.fPath, 'r') as f: #may write to a temp file later
+            self.curGoal = f.read()
         self.step = 0 # number of times tactics have already been applied
         self.priorActions = [] # store list of tactic strings
+        self.win = False
         self.failed = False
         self.nochange  = False
         self.accRLimit = 0 # machine-independent timing
@@ -71,7 +77,6 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def get_copy(self):
         copied = copy.copy(self)
         # it is not important how to take care of self.cacheTN as it's taken care of in transformNextState()
-        copied.curGoal = copy.deepcopy(copied.curGoal)
         copied.priorActions = copy.copy(copied.priorActions)
         return copied
 
@@ -79,8 +84,9 @@ class Board(): # Keep its name as Board for now; may call it goal later
         if self.is_done():
             raise Exception("Game is already over")
 
+    # John: when does this used?
     def get_state(self):
-        return str(self.curGoal)
+        return self.curGoal
 
     # currently +1 so that 0 represent no prior action
     def get_most_recent_action(self):
@@ -92,9 +98,13 @@ class Board(): # Keep its name as Board for now; may call it goal later
             'is-qflra', 'is-qflira', 'is-qfnia', 'is-qfnra', 'memory', 'depth', 'size', 'num-exprs', 'num-consts', 'num-bool-consts', 'num-arith-consts', 'num-bv-consts', 'has-quantifiers',
             'has-patterns', 'is-propositional', 'is-qfbv', 'is-qfaufbv', 'is-quasi-pb']
         measureLst = []
+        cntx = z3.Context()
+        formula = z3.parse_smt2_string(self.curGoal, ctx=cntx)
+        goal = z3.Goal(ctx=cntx)
+        goal.add(formula)
         for pStr in probeStrLst:
-            p = Probe(pStr)
-            measure = p(self.curGoal)
+            p = z3.Probe(pStr, ctx=cntx)
+            measure = p(goal)
             if pStr in self.stats:
                 measure = (measure-self.stats[pStr][0])/(self.stats[pStr][1]-self.stats[pStr][0])
             measureLst.append(measure)
@@ -107,7 +117,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return self.accRLimit
 
     def is_win(self):
-        return (str(self.curGoal) == "[]") or (str(self.curGoal) == "[False]")
+        return self.win
 
     def is_fail(self):
         return self.failed
@@ -127,20 +137,26 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def transformNextState(self, move, timeout):
         if self.train:
             self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
-        # print(self.moves_str[move])
-        t = Tactic(self.moves_str[move], ctx = self.cntx)
+        cntx = z3.Context()
+        formula = z3.parse_smt2_string(self.curGoal, ctx=cntx)
+        pre_goal = z3.Goal(ctx=cntx)
+        pre_goal.add(formula)
+        t = Tactic(self.moves_str[move], ctx = cntx)
         self.priorActions.append(self.moves_str[move])
         # self.priorMoves.append(move)
         tTimed = TryFor(t, timeout * 1000)
-        prevGoalStr = str(self.curGoal)
-        tmp = z3.Solver(ctx = self.cntx)
+        tmp = z3.Solver(ctx = cntx)
         rlimit_before = get_rlimit(tmp)
         try:
-            tResult = tTimed(self.curGoal)
-            assert(len(tResult) == 1)
-            self.curGoal = tResult[0]
-            if prevGoalStr == str(self.curGoal):
+            new_goals = tTimed(pre_goal)
+            assert(len(new_goals) == 1)
+            new_goal = new_goals[0]
+            if (str(new_goal) == "[]") or (str(new_goal) == "[False]"): self.win = True
+            if str(pre_goal) == str(new_goal):
                 self.nochange = True
+            else:
+                e = new_goal.as_expr()
+                self.curGoal = toSMT2Benchmark(e, logic="QF_NIA")
         except Z3Exception:
             self.failed = True
         rlimit_after = get_rlimit(tmp)

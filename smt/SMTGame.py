@@ -71,6 +71,7 @@ class SMTGame(Game):
     def getManualEmbedding(self, board):
         return board.get_manual_state()
 
+        # this is currently used nowhere; check later
     def getEmbedding(self, board):
         return board.get_state()
 
