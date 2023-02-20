@@ -16,25 +16,31 @@ print = functools.partial(print, flush=True)
 Game class implementation for SMT solving.
 """
 
+# consider move these to json
+# TOTAL_TIMEOUT = 180 # in seconds
+
 MODEL_OUT_FEATURES = 768
 MANUAL_FEATURES = 25 # change this later
 
+MIN_SOLVED_REWARD = 0.1
 WIN_REWARD = 1
-NOCHANGE_REWARD = -1
-FAIL_REWARD = -1
-GIVEUP_REWARD = -1
+LOSE_REWARD = -1
+# NOCHANGE_REWARD = -1
+# FAIL_REWARD = -1
+# GIVEUP_REWARD = -1
 
 STEP_WT = 0
 TIME_WT = 0.000000001
 
 class SMTGame(Game):
-    def __init__(self, benchmarkPath, ext, moves_str, stats, tactic_timeout, train = True):
+    def __init__(self, benchmarkPath, ext, moves_str, stats, total_timeout, tactic_timeout, train = True):
         self.train = train
         self.bPath = benchmarkPath
         self.ext = ext
         self.formulaLst = []
         self.forest = [] # caching forest
         self.stats = stats
+        self.total_timeout = total_timeout
         self.tactic_timeout = tactic_timeout
         self.moves_str = moves_str
         self.action_size = len(moves_str) # TODO: change later John: how
@@ -65,7 +71,7 @@ class SMTGame(Game):
         assert(id < self.fSize) # may consider reiterate from the beginning when id >= size
         tnode = None
         if self.train: tnode = self.forest[id]
-        bd = Board(id, self.formulaLst[id], self.moves_str, tnode, self.stats, self.train)
+        bd = Board(id, self.formulaLst[id], self.moves_str, tnode, self.stats, self.total_timeout, self.train)
         return bd
 
     def getManualEmbedding(self, board):
@@ -102,20 +108,13 @@ class SMTGame(Game):
         # valids[x]=1
         return np.array(valids)
 
-    def getGameEnded(self, board,level = 0): #John: want to delete the level here
-        # return 0 if not ended, 1 if solved, -1 if give up after certain number of attempts
+    def getGameEnded(self, board):
         if board.is_win():
-            reward = WIN_REWARD - STEP_WT*level - TIME_WT*board.get_time()
-            assert(reward > 0)
-            return reward
-        if board.is_giveup():
-            return GIVEUP_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
-        if self.train:
-            if board.is_fail():
-                return FAIL_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
-            if board.is_nochange():
-                return NOCHANGE_REWARD # - STEP_WT*level - TIME_WT*board.get_time()
-        return 0 # relate to resources later # game not over yet
+            if board.get_time() > self.total_timeout: return MIN_SOLVED_REWARD
+            return WIN_REWARD - (board.get_time()/self.total_timeout)*(WIN_REWARD - MIN_SOLVED_REWARD)
+        if board.is_timeout():
+            return LOSE_REWARD
+        return 0 # game not over yet
 
     def getCanonicalForm(self, board): # TODO
         """

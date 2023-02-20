@@ -13,7 +13,7 @@ print = functools.partial(print, flush=True)
 
 class PlanningArena():
     # may move val total timeout to game
-    def __init__(self, nnet, game, timeout, log_to_file, log_file, iter, val_batch):
+    def __init__(self, nnet, game, log_to_file, log_file, iter, val_batch):
         """
         Input:
             agent 1,2: two functions that takes board as input, return action
@@ -26,21 +26,9 @@ class PlanningArena():
         self.game = game
         self.log_file = log_file
         self.log_to_file = log_to_file
-        self.total_timeout = timeout
+        self.total_timeout = game.total_timeout
         self.iter = iter
         self.val_batch = val_batch
-
-    # def playGame(self, policy, game, verbose=False):
-    #     """
-    #     Executes one episode of a game.
-    #     """
-    #     board = game.getInitBoard()
-    #     solve_thread = Runner(policy, board, self.total_timeout, game.tactic_timeout, self.log_to_file, self.log_file)
-    #     solve_thread.start()
-    #     # fix which timeout is used?
-    #     solve_thread.join(self.total_timeout)
-    #     result, rlimit, time_res, nn_time, solver_time = solve_thread.collect()
-    #     return result, rlimit, time_res
 
     def playGames(self, num, verbose=False):
         """

@@ -17,9 +17,12 @@ Based on the board for the game of Othello by Eric P. Nichols.
 from z3 import *
 import numpy as np
 import copy
+import time
 
+# consider move these to json
+# TOTAL_TIMEOUT = 180 # in seconds
 PREV_ACTIONS_EMBED = 3 # number of previous actions you want to include in your embedding for prior actions
-STEP_UPPER_BOUND = 8 # upper bound on the number of steps to take in a game
+# STEP_UPPER_BOUND = 8 # upper bound on the number of steps to take in a game
 # TACTIC_TIMEOUT = 10000 # in milliseconds
 
 def get_rlimit(tmpSolver):
@@ -46,7 +49,7 @@ class CacheTreeNode():
     #     self.childLst[move] = treeNode
 
 class Board(): # Keep its name as Board for now; may call it goal later
-    def __init__(self, ID, formulaPath, moves_str, cTreeNode, stats, train):
+    def __init__(self, ID, formulaPath, moves_str, cTreeNode, stats, total_timeout, train):
         "Set up initial board configuration."
         self.train = train
         self.id = ID
@@ -55,6 +58,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         # print(formulaPath)
         self.moves_str = moves_str
         self.stats = stats
+        self.total_timeout = total_timeout
         # Create the empty board array.
         # self.cntx = Context()
         # self.formula = z3.parse_smt2_file(formulaPath, ctx=self.cntx)
@@ -67,11 +71,12 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.win = False
         self.failed = False
         self.nochange  = False
-        self.accRLimit = 0 # machine-independent timing
+        self.accRLimit = 0 # machine-independent time
+        self.accTime = 0 # time
         self.rlimit = None # rlimit for executing the last tactic
 
     def __str__(self): # when you print board object
-        return f"fID: {self.id}; fPath: {self.fPath}; Embedding: {self.get_manual_state()}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accRLimit: {self.accRLimit}"
+        return f"fID: {self.id}; fPath: {self.fPath}; Embedding: {self.get_manual_state()}; step: {self.step}; is_win: {self.is_win()}; is_nochange: {self.is_nochange()}; is_fail: {self.is_fail()}; accTime: {self.accTime}, accRLimit: {self.accRLimit}"
 
     # mixed shallow&deep copy
     def get_copy(self):
@@ -114,7 +119,7 @@ class Board(): # Keep its name as Board for now; may call it goal later
         return np.array(measureLst + prior_actions_padded)
 
     def get_time(self):
-        return self.accRLimit
+        return self.accTime
 
     def is_win(self):
         return self.win
@@ -128,16 +133,22 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def is_giveup(self):
         return self.step > STEP_UPPER_BOUND
 
-    def is_done(self):
-        if self.train:
-            return self.is_win() or self.is_giveup() or self.is_fail() or self.is_nochange()
-        return self.is_win() or self.is_giveup()
+    # episode timeout
+    def is_timeout(self):
+        return self.accTime > self.total_timeout
 
+    def is_done(self):
+        return self.is_win() or self.is_timeout()
+
+    # TO_DO: currently no_change or fail just mean in the process it has happened sometime
     # with the current caching design, timeout cannot be changed for a formula
     def transformNextState(self, move, timeout):
         if self.train:
             self.cacheTN = CacheTreeNode(len(self.moves_str),self) # may relate to action size?
         cntx = z3.Context()
+        tmp = z3.Solver(ctx = cntx)
+        rlimit_before = get_rlimit(tmp)
+        time_before = time.time()
         formula = z3.parse_smt2_string(self.curGoal, ctx=cntx)
         pre_goal = z3.Goal(ctx=cntx)
         pre_goal.add(formula)
@@ -145,8 +156,6 @@ class Board(): # Keep its name as Board for now; may call it goal later
         self.priorActions.append(self.moves_str[move])
         # self.priorMoves.append(move)
         tTimed = TryFor(t, timeout * 1000)
-        tmp = z3.Solver(ctx = cntx)
-        rlimit_before = get_rlimit(tmp)
         try:
             new_goals = tTimed(pre_goal)
             assert(len(new_goals) == 1)
@@ -160,10 +169,11 @@ class Board(): # Keep its name as Board for now; may call it goal later
         except Z3Exception:
             self.failed = True
         rlimit_after = get_rlimit(tmp)
+        time_after = time.time()
         self.rlimit = rlimit_after - rlimit_before
+        self.accTime += (time_after - time_before)
         self.accRLimit += self.rlimit
         self.step = self.step + 1
-
 
     def execute_move(self, move, timeout):
         """Perform the given move on the board and return the result board

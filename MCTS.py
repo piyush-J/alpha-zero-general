@@ -116,11 +116,11 @@ class MCTS():
                 f = open(self.filename,'a+')
                 f.write(f"Search reach final board {canonicalBoard}\n")
                 f.write(f"Actions: {canonicalBoard.priorActions}\n")
-                f.write(f"Game over: Return {game.getGameEnded(canonicalBoard, level)}\n\n")
+                f.write(f"Game over: Return {game.getGameEnded(canonicalBoard)}\n\n")
                 f.close()
             # if verbose:
             #     log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
-            return game.getGameEnded(canonicalBoard, level)
+            return game.getGameEnded(canonicalBoard)
             # return self.Es[s] - 0.01*level - 0.01*canonicalBoard.get_time() # penalizing for number of steps and time here (because the same end state can appear at different times)
 
         #print("3: ", time.time()-start_time)

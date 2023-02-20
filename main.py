@@ -32,13 +32,15 @@ def main():
     val_path = config['validation_dir']
     smt_ext = config['file_ext']
     mv_str = config['tactics_config']['all_tactics']
+    train_total_timeout = config['train_total_timeout']
+    val_total_timeout = config['val_total_timeout']
     train_tactic_timeout = config["train_tactic_timeout"]
     val_tactic_timeout = config["val_tactic_timeout"]
     stats = config['AProVE_min_max'] #change this name: more general
     coach_args = dotdict(config['coach_args'])
     log.info(f'Loading {SMTGame.__name__}...')
-    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats, tactic_timeout = train_tactic_timeout)
-    g_val = SMTGame(benchmarkPath = val_path, ext = smt_ext, moves_str = mv_str, stats = stats, tactic_timeout = val_tactic_timeout, train = False)
+    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats, total_timeout = train_total_timeout, tactic_timeout = train_tactic_timeout)
+    g_val = SMTGame(benchmarkPath = val_path, ext = smt_ext, moves_str = mv_str, stats = stats, total_timeout = val_total_timeout, tactic_timeout = val_tactic_timeout, train = False)
 
     log.info('Loading %s...', snn.__name__)
     nnet = snn(g)
