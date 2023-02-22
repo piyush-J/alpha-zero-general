@@ -56,18 +56,22 @@ class EpisodeExecutor(threading.Thread):
 
             if r != 0:
                 if self.log_to_file:
-                    f = open(self.log_file,'a+')
-                    f.write(f"Final board {board}\n")
-                    f.write(f"Actions: {board.priorActions}\n")
-                    f.write(f"Game over: Return {r}\n\n")
-                    f.close()
+                    with open(self.log_file,'a+') as f:
+                        f.write(f"Final board {board}\n")
+                        f.write(f"Actions: {board.priorActions}\n")
+                        f.write(f"Game over: Return {r}\n\n")
                 # log.info(f"Final board\n{board} with reward {r}")
                 self.resTrainExamples = [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
                 break
 
     def collect(self):
         assert(not self.is_alive())
-        return self.resTrainExamples
+        if self.game.is_solvable(self.id):
+            if self.log_to_file:
+                with open(self.log_file,'a+') as f:
+                    f.write(f"Fomula {self.id} is sovlable; adding to training examples\n\n")
+            return self.resTrainExamples
+        return []
 
 class Coach():
     """
@@ -111,7 +115,7 @@ class Coach():
                     batch_instance_ids = range(j, min(j+self.train_batch, self.args.numEps))
                     threads = []
                     for id in batch_instance_ids:
-                        threads.append(EpisodeExecutor(copy.copy(self.game), copy.copy(self.nnet), self.args, id, self.log_to_file, iterLogFolder))
+                        threads.append(EpisodeExecutor(self.game, copy.copy(self.nnet), self.args, id, self.log_to_file, iterLogFolder))
                     for thread in threads:
                         thread.start()
                     for thread in threads:
@@ -121,8 +125,6 @@ class Coach():
                         iterationTrainExamples += resTrainExamples
                 # save the iteration examples to the history
                 self.trainExamplesHistory.append(iterationTrainExamples)
-
-
 
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 log.warning(

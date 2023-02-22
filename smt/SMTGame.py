@@ -49,6 +49,7 @@ class SMTGame(Game):
             self.formulaLst.append(f)
             self.forest.append(CacheTreeNode(num_moves = self.action_size))
         self.fSize = len(self.formulaLst)
+        self.solveLst = [False] *  self.fSize # recording whether a formula in the list has ever been solved
         if self.fSize < 1: raise Exception("No smt file in the folder")
         self.accRlimit_all = [] # John: what's this?
 
@@ -59,12 +60,11 @@ class SMTGame(Game):
         return self
         # copy.deepcopy(self)
 
-    # def setNextFmID(self, id = 0): #set self.nextFmID value, and correspondingly, self.curFmID
-    #     assert(id < self.fSize)
-    #     self.nextFmID = id
-
     def getBenchmarkSize(self):
         return self.fSize
+
+    def is_solvable(self, id):
+        return self.solveLst[id]
 
     # need to change the overridden function signature in Game.py?
     def getInitBoard(self, id):
@@ -110,6 +110,7 @@ class SMTGame(Game):
 
     def getGameEnded(self, board):
         if board.is_win():
+            self.solveLst[board.id] = True
             if board.get_time() > self.total_timeout: return MIN_SOLVED_REWARD
             return WIN_REWARD - (board.get_time()/self.total_timeout)*(WIN_REWARD - MIN_SOLVED_REWARD)
         if board.is_timeout():
