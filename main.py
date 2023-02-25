@@ -39,7 +39,7 @@ def main():
     stats = config['AProVE_min_max'] #change this name: more general
     coach_args = dotdict(config['coach_args'])
     log.info(f'Loading {SMTGame.__name__}...')
-    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats, total_timeout = train_total_timeout, tactic_timeout = train_tactic_timeout)
+    g = SMTGame(benchmarkPath = train_path, ext = smt_ext, moves_str = mv_str, stats = stats, total_timeout = train_total_timeout, tactic_timeout = train_tactic_timeout, train = True)
     g_val = SMTGame(benchmarkPath = val_path, ext = smt_ext, moves_str = mv_str, stats = stats, total_timeout = val_total_timeout, tactic_timeout = val_tactic_timeout, train = False)
 
     log.info('Loading %s...', snn.__name__)
@@ -51,8 +51,11 @@ def main():
     else:
         log.warning('Not loading a checkpoint!')
 
+
+    nnet.save_checkpoint(folder=coach_args.checkpoint, filename='best.pth.tar')
+
     log.info('Loading the Coach...')
-    c = Coach(g, g_val, nnet, coach_args)
+    c = Coach(g, g_val, coach_args)
 
     if coach_args.load_model:
         log.info("Loading 'trainExamples' from file...")
@@ -61,8 +64,8 @@ def main():
     log.info('Starting the learning process 🎉')
     c.learn()
 
-    accRlimit_all = np.array(g.accRlimit_all)
-    print(f"min accRlimit_all: {np.min(accRlimit_all)}, max accRlimit_all: {np.max(accRlimit_all)}, mean accRlimit_all: {np.mean(accRlimit_all)}, std accRlimit_all: {np.std(accRlimit_all)}")
+    # accRlimit_all = np.array(g.accRlimit_all)
+    # print(f"min accRlimit_all: {np.min(accRlimit_all)}, max accRlimit_all: {np.max(accRlimit_all)}, mean accRlimit_all: {np.mean(accRlimit_all)}, std accRlimit_all: {np.std(accRlimit_all)}")
 
 if __name__ == "__main__":
     main()

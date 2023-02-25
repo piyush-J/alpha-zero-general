@@ -21,7 +21,7 @@ import time
 
 # consider move these to json
 # TOTAL_TIMEOUT = 180 # in seconds
-PREV_ACTIONS_EMBED = 3 # number of previous actions you want to include in your embedding for prior actions
+PREV_ACTIONS_EMBED = 5 # number of previous actions you want to include in your embedding for prior actions
 # STEP_UPPER_BOUND = 8 # upper bound on the number of steps to take in a game
 # TACTIC_TIMEOUT = 10000 # in milliseconds
 

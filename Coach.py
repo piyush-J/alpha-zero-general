@@ -9,30 +9,29 @@ from random import shuffle
 import datetime
 import numpy as np
 from tqdm import tqdm
-import threading
+# import threading
+import multiprocessing
 
 from Arena import PlanningArena
 from MCTS import MCTS
-
+from smt.NNet import NNetWrapper as snn
 
 log = logging.getLogger(__name__)
 
 import functools
 print = functools.partial(print, flush=True)
 
-
-class EpisodeExecutor(threading.Thread):
-    def __init__(self, game, nnet, args, id, log_to_file, log_folder):
-        threading.Thread.__init__(self)
-        self.trainExamples = []
+class EpisodeExecutor(multiprocessing.Process):
+    def __init__(self, game, args, queue, id, log_to_file, log_folder):
+        multiprocessing.Process.__init__(self)
         self.game = game
         self.id = id
         self.args = args
+        self.q = queue
         self.log_to_file = log_to_file
         self.log_file = log_folder + str(id) + ".log"
         # self.context = Context()
-        self.mcts = MCTS(nnet, self.args, self.log_file)
-        self.resTrainExamples = None
+        self.mcts = MCTS(self.args, self.log_file)
 
     def run(self):
         board = self.game.getInitBoard(self.id)
@@ -61,17 +60,23 @@ class EpisodeExecutor(threading.Thread):
                         f.write(f"Actions: {board.priorActions}\n")
                         f.write(f"Game over: Return {r}\n\n")
                 # log.info(f"Final board\n{board} with reward {r}")
-                self.resTrainExamples = [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
+                train_samples = [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
+                if (self.game.is_solvable(self.id)):
+                    self.q.put((self.id, train_samples))
                 break
 
-    def collect(self):
-        assert(not self.is_alive())
-        if self.game.is_solvable(self.id):
-            if self.log_to_file:
-                with open(self.log_file,'a+') as f:
-                    f.write(f"Fomula {self.id} is sovlable; adding to training examples\n\n")
-            return self.resTrainExamples
-        return []
+    # def collect(self):
+    #     assert(not self.is_alive())
+    #     if self.log_to_file:
+    #         with open(self.log_file,'a+') as f:
+    #             f.write(f"after iteration, solvable list: {self.game.solveLst}\n")
+    #             f.write(f"after iteration, training samples: {self.resTrainExamples}\n")
+    #     if self.game.is_solvable(self.id):
+    #         if self.log_to_file:
+    #             with open(self.log_file,'a+') as f:
+    #                 f.write(f"Fomula {self.id} is sovlable; adding to training examples\n\n")
+    #         return self.resTrainExamples
+    #     return []
 
 class Coach():
     """
@@ -79,12 +84,13 @@ class Coach():
     in Game and NeuralNet. args are specified in main.py.
     """
 
-    def __init__(self, game, game_validation, nnet, args):
+    def __init__(self, game, game_validation, args):
         self.game = game
         self.game_validation = game_validation
-        self.nnet = nnet
-        self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
+        self.nnet = snn(self.game)
+        self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+        self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.sample_size = self.args.sample_number_val
         self.log_to_file = self.args.log_to_file
         self.train_batch = self.args.train_batch
@@ -102,7 +108,7 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
-
+        multiprocessing.set_start_method('spawn')
         prewards = None
         for i in range(1, self.args.numIters + 1):
             # bookkeeping
@@ -111,19 +117,25 @@ class Coach():
             os.makedirs(os.path.dirname(iterLogFolder), exist_ok=True)
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                q = multiprocessing.Queue()
                 for j in tqdm(range(0, self.args.numEps, self.train_batch), desc="Batch Self Play"):
                     batch_instance_ids = range(j, min(j+self.train_batch, self.args.numEps))
                     threads = []
                     for id in batch_instance_ids:
-                        threads.append(EpisodeExecutor(self.game, copy.copy(self.nnet), self.args, id, self.log_to_file, iterLogFolder))
+                        threads.append(EpisodeExecutor(self.game, self.args, q, id, self.log_to_file, iterLogFolder))
                     for thread in threads:
                         thread.start()
                     for thread in threads:
                         thread.join()
-                    for thread in threads:
-                        resTrainExamples = thread.collect()
-                        iterationTrainExamples += resTrainExamples
+                    # for thread in threads:
+                    #     resTrainExamples = thread.collect()
+                    #     print(resTrainExamples)
+                    #     iterationTrainExamples += resTrainExamples
                 # save the iteration examples to the history
+                while (not q.empty()):
+                    id, trainExamples = q.get()
+                    self.game.solveLst[id] = True
+                    iterationTrainExamples += trainExamples
                 self.trainExamplesHistory.append(iterationTrainExamples)
 
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
@@ -139,6 +151,8 @@ class Coach():
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+
+            print(f"after iteration, solvable list: {self.game.solveLst}")
 
             self.nnet.train(trainExamples)
 

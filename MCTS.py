@@ -4,6 +4,8 @@ import time
 
 import numpy as np
 
+from smt.NNet import NNetWrapper as snn
+
 EPS = 1e-8
 
 log = logging.getLogger(__name__)
@@ -14,10 +16,9 @@ class MCTS():
     This class handles the MCTS tree.
     """
 
-    def __init__(self, nnet, args, filename):
+    def __init__(self, args, filename):
         # self.game = game.get_copy()
         self.filename = filename
-        self.nnet = nnet
         self.args = args
         # self.context = cntx
         self.log_to_file = self.args.log_to_file
@@ -88,7 +89,8 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-
+        nnet = snn(game)
+        nnet.load_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
         start_time = time.time()
         #print("1: ", time.time()-start_time)
 
@@ -131,7 +133,7 @@ class MCTS():
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
             with open(self.filename,'a+') as f:
                 f.write(f"Node is leaf node, using NN to predict value\n")
-            self.Ps[s], v = self.nnet.predict(canonicalBoard.get_manual_state()) # plays a role in calculating UCB too
+            self.Ps[s], v = nnet.predict(canonicalBoard.get_manual_state()) # plays a role in calculating UCB too
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
@@ -148,6 +150,8 @@ class MCTS():
 
             self.Vs[s] = valids
             self.Ns[s] = 0
+            with open(self.filename,'a+') as f:
+                f.write(f"ready to return v in leaf\n")
             return v # STEP 4: BACKPROPAGATION
 
         valids = self.Vs[s]

@@ -24,7 +24,9 @@ MANUAL_FEATURES = 25 # change this later
 
 MIN_SOLVED_REWARD = 0.1
 WIN_REWARD = 1
+STEP_EXCEED_REWARD = -0.5
 LOSE_REWARD = -1
+MAX_STEP = 9
 # NOCHANGE_REWARD = -1
 # FAIL_REWARD = -1
 # GIVEUP_REWARD = -1
@@ -113,6 +115,8 @@ class SMTGame(Game):
             self.solveLst[board.id] = True
             if board.get_time() > self.total_timeout: return MIN_SOLVED_REWARD
             return WIN_REWARD - (board.get_time()/self.total_timeout)*(WIN_REWARD - MIN_SOLVED_REWARD)
+        if self.train:
+            if board.step > MAX_STEP: return STEP_EXCEED_REWARD
         if board.is_timeout():
             return LOSE_REWARD
         return 0 # game not over yet
