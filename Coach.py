@@ -8,7 +8,7 @@ from random import shuffle
 import numpy as np
 from tqdm import tqdm
 
-from Arena import PlanningArena
+# from Arena import PlanningArena
 from MCTS import MCTS
 
 log = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ class Coach():
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
                 for _ in tqdm(range(self.args.numEps), desc="Self Play"):
-                    self.mcts = MCTS(self.nnet, self.args)  # reset search tree
+                    # self.mcts = MCTS(self.nnet, self.args)  # do not reset search tree
                     iterationTrainExamples += self.executeEpisode()
 
                 # save the iteration examples to the history 
@@ -143,55 +143,51 @@ class Coach():
             # NB! the examples were collected using the model from the previous iteration, so (i-1)  
             self.saveTrainExamples(i - 1)
 
-            trainExamples, perc = self.prepareTrainExamples()
+            trainExamples = self.prepareTrainExamples()
 
             # training new network, keeping a copy of the old one
-            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.pnet, self.args)
+            # self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            # self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            # pmcts = MCTS(self.pnet, self.args)
 
             self.nnet.train(trainExamples)
-            nmcts = MCTS(self.nnet, self.args)
+            # nmcts = MCTS(self.nnet, self.args)
 
-            log.info('PITTING AGAINST PREVIOUS VERSION')
+            # log.info('PITTING AGAINST PREVIOUS VERSION')
             # arena = PlanningArena(lambda x: np.argmax(pmcts.getActionProb(x, verbose=True, temp=0)),
             #                         lambda x: np.argmax(nmcts.getActionProb(x, verbose=True, temp=0)), self.game, perc)
-            arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc)#, display=print)
-            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
+            # arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
+            #                         lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc)#, display=print)
+            # prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False)
 
-            log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
-            if nrewards == prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
-                log.info('REJECTING NEW MODEL')
-                self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            else:
-                log.info('ACCEPTING NEW MODEL')
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+            # log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
+            # if nrewards == prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
+            #     log.info('REJECTING NEW MODEL')
+            #     self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            # else:
+            #     log.info('ACCEPTING NEW MODEL')
+            #     self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
+            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+            self.mcts.nnet = self.nnet # update the search tree model with the new model
 
     def prepareTrainExamples(self):
-        # Ranked reward: we replace the actual reward with 0 or 1, depending on whether
-        # that reward is smaller/larger than the 75 percentile of all rewards.
-        
-        # compute .75 percentile for the last iteration
+
         iterationExamples = self.trainExamplesHistory[-1]
-        rew = [e[2] for e in iterationExamples] 
+        rew = [e[2] for e in iterationExamples]
         # mean, min, std and max of the rewards
-        log.info(f"Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
-        perc = np.percentile(rew, 75)
-        log.info(f"Percentile is {perc}")
+        log.info(f"REWARDS - Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
 
         trainExamples = []
         for e in self.trainExamplesHistory:
             trainExamples.extend(e)
 
-        # compute the ranked reward for all training examples (not only the last iteration)
-        trainExamples = [(np.where(e[0] != 0, 1, 0), e[1], 1 if e[2]>perc else 0) for e in trainExamples]
-        
+        # all training examples (not only the last iteration)
+        trainExamples = [(e[0], e[1], e[2]) for e in trainExamples]
+
         # shuffle examples before training
         shuffle(trainExamples)
 
-        return trainExamples, perc
+        return trainExamples
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'

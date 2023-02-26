@@ -12,7 +12,7 @@ from NeuralNet import NeuralNet
 import torch
 import torch.optim as optim
 
-from .PlanningNNet import PlanningNNet as pnnet
+from .KSNNet import KSNNet as ksnnet
 
 args = dotdict({
     'lr': 0.001,
@@ -26,9 +26,8 @@ args = dotdict({
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game):
-        self.nnet = pnnet(game, args)
+        self.nnet = ksnnet(game, args)
         self.board_x, self.board_y = game.getBoardSize()
-        self.action_size = game.getActionSize()
 
         if args.cuda:
             self.nnet.cuda()

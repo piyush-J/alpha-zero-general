@@ -1,34 +1,40 @@
+import copy
 from Game import Game
-from .KSLogic import PlanningRepresentation
+from .KSLogic import Board
 import numpy as np
-from sympy.utilities.iterables import multiset_permutations
+import networkx as nx
 
-class PlanningGame(Game):
-    def __init__(self, machines, timesteps, domainactions, rewardstrategy):
-        super(PlanningGame, self).__init__()
-        self.machines = machines
-        self.timesteps = timesteps
-        self.domainactions = domainactions
-        self.rewardstrategy = rewardstrategy
-        self.legal_actions = [i for i in range(machines * timesteps)]
-        self.current_domainaction = 0
+from pysat.formula import CNF
+from pysat.solvers import Solver
+
+ORDER = 4 # order of the KS system
+
+class KSGame(Game):
+    def __init__(self, n=1): 
+        super(KSGame, self).__init__()
+        self.n = n # size of the adjacency matrix
+        self.cnf = CNF(from_file="constraints_5")
+        self.solver = Solver(bootstrap_with=self.cnf)
+
+        self.edge_dict = {}
+        self.tri_dict = {}
+        count = 0
+        for j in range(1, ORDER+1):             #generating the edge variables
+            for i in range(1, ORDER+1):
+                if i < j:
+                    count += 1
+                    self.edge_dict[(i,j)] = count
+        # for a in range(1, ORDER-1):             #generating the triangle variables
+        #     for b in range(a+1, ORDER):
+        #         for c in range(b+1, ORDER+1):
+        #             count += 1
+        #             self.tri_dict[(a,b,c)] = count
 
     def _make_representation(self):
-        return PlanningRepresentation(self.machines,
-                                        self.timesteps, 
-                                        self.domainactions, 
-                                        self.rewardstrategy,
-                                        list(np.copy(self.legal_actions)),
-                                        self.current_domainaction)
+        return Board(n=self.n, solver=self.solver, edge_dict=self.edge_dict)
 
     def get_copy(self):
-        c = PlanningGame(self.machines, 
-                            self.timesteps,
-                            self.domainactions,
-                            self.rewardstrategy)
-        c.legal_actions = list(np.copy(self.legal_actions))
-        c.current_domainaction = self.current_domainaction
-        return c
+        return copy.deepcopy(self)
 
     def getInitBoard(self):
         """
@@ -37,37 +43,31 @@ class PlanningGame(Game):
                         that will be the input to your neural network)
         """
         r = self._make_representation()
-        return r.schedule
+        return r.triu # np.array([0])
 
     def getBoardSize(self):
-        """
-        Returns:
-            (x,y): a tuple of board dimensions
-        """
-        return (self.machines, self.timesteps)
+        return self.n*(self.n-1)//2 # upper triangular elements
 
     def getActionSize(self):
         """
         Returns:
             actionSize: number of all possible actions
         """
-        return (self.machines * self.timesteps) + 1
+        return 2**ORDER # TODO: later shift to self.n + 1
 
     def getNextState(self, board, action):
         """
         Input:
-            board: current board
-            action: action taken by current player
+            board: current board (np.array)
+            action: action taken by current player (int)
 
         Returns:
             nextBoard: board after applying action
         """
         r = self._make_representation()
-        r.schedule = np.copy(board)
+        r.triu = np.copy(board)
         r.execute_move(action)
-        self.current_domainaction = r.current_domainaction
-        self.legal_actions = r.legal_actions
-        return r.schedule
+        return r.triu
 
     def getValidMoves(self, board):
         """
@@ -82,11 +82,8 @@ class PlanningGame(Game):
         # return a fixed size binary vector
         valids = [0]*self.getActionSize()
         r = self._make_representation()
-        r.schedule = np.copy(board)
+        r.triu = np.copy(board)
         legalMoves =  r.get_legal_moves()
-        if len(legalMoves)==0:
-            valids[-1]=1
-            return np.array(valids)
         for x in legalMoves:
             valids[x]=1
         return np.array(valids)
@@ -101,8 +98,38 @@ class PlanningGame(Game):
                
         """
         r = self._make_representation()
-        r.schedule = np.copy(board)
+        r.triu = np.copy(board)
         return r.compute_reward() if r.is_done() else None
+
+    # convert the 2-D adjacency matrix to a 1-D vector of the upper triangular elements
+    def adj2triu(self, adj_matrix): 
+        assert len(adj_matrix) == self.n
+        i = np.triu_indices(self.n, k=1) # k=1 to exclude the diagonal
+        col_wise_sort = i[1].argsort()
+        i_new = (i[0][col_wise_sort], i[1][col_wise_sort])
+        board_triu = adj_matrix[i_new]
+        return board_triu
+
+    # convert the a 1-D vector of the upper triangular elements to a 2-D adjacency matrix
+    def triu2adj(self, board_triu): 
+        assert len(board_triu) == self.n*(self.n-1)//2
+        adj_matrix = np.zeros((self.n, self.n), dtype=int)
+        i = np.triu_indices(self.n, k=1) # k=1 to exclude the diagonal
+        col_wise_sort = i[1].argsort()
+        i_new = (i[0][col_wise_sort], i[1][col_wise_sort])
+        adj_matrix[i_new] = board_triu
+        return adj_matrix
+
+    # create a isomorphic graph from the adjacency matrix
+    def create_graph(self, adj_matrix, permutation_matrix):
+        G = nx.from_numpy_array(adj_matrix)
+        H = nx.relabel_nodes(G, dict(zip(G.nodes(), permutation_matrix)))
+        return H
+
+    # print networkx graph from adjacency matrix
+    def print_graph(self, adj_matrix):
+        G = nx.from_numpy_array(adj_matrix)
+        nx.draw(G, with_labels=True)
 
     def getCanonicalForm(self, board):
         """
@@ -153,5 +180,4 @@ class PlanningGame(Game):
             boardString: a quick conversion of board to a string format.
                          Required by MCTS for hashing.
         """
-        # return board.tobytes()s
-        return "\n".join([f"{x}:[{','.join([str(y) for y in board[x]])}]" for x in range(len(board))])
+        return ''.join(map(str, board))

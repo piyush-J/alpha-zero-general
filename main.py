@@ -4,9 +4,8 @@ import coloredlogs
 
 from Coach import Coach
 
-from ksgraph.NNet import NNetWrapper as pnn
-from ksgraph.KSGame import PlanningGame
-from ksgraph.KSLogic import DomainAction, MinSpanTimeRewardStrategy, RelativeProductRewardStrategy
+from ksgraph.NNet import NNetWrapper as ksnn
+from ksgraph.KSGame import KSGame
 
 from utils import *
 
@@ -33,18 +32,18 @@ args = dotdict({
 
 
 def main():
-    domainactions = [DomainAction(urn=1, duration=2), DomainAction(urn=2, duration=2),
-                     DomainAction(urn=3, duration=1), DomainAction(urn=4, duration=1),
-                     DomainAction(urn=5, duration=2), DomainAction(urn=6, duration=1)]
-    machines = 6
-    timesteps = 6
+    # domainactions = [DomainAction(urn=1, duration=2), DomainAction(urn=2, duration=2),
+    #                  DomainAction(urn=3, duration=1), DomainAction(urn=4, duration=1),
+    #                  DomainAction(urn=5, duration=2), DomainAction(urn=6, duration=1)]
+    # machines = 6
+    # timesteps = 6
 
-    log.info(f'Loading {PlanningGame.__name__}...')
-    # g = PlanningGame(machines=machines, timesteps=timesteps, domainactions=domainactions,rewardstrategy=MinSpanTimeRewardStrategy(-((machines*timesteps) + 1)))
-    g = PlanningGame(machines=machines, timesteps=timesteps, domainactions=domainactions,rewardstrategy=RelativeProductRewardStrategy(-((machines**timesteps)+1)))
+    log.info(f'Loading {KSGame.__name__}...')
+    # g = KSGame(machines=machines, timesteps=timesteps, domainactions=domainactions,rewardstrategy=MinSpanTimeRewardStrategy(-((machines*timesteps) + 1)))
+    g = KSGame() # machines=machines, timesteps=timesteps, domainactions=domainactions,rewardstrategy=RelativeProductRewardStrategy(-((machines**timesteps)+1)))
     
-    log.info('Loading %s...', pnn.__name__)
-    nnet = pnn(g)
+    log.info('Loading %s...', ksnn.__name__)
+    nnet = ksnn(g)
 
     if args.load_model:
         log.info('Loading checkpoint "%s/%s"...', args.load_folder_file[0], args.load_folder_file[1])
