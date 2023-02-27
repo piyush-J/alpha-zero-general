@@ -21,6 +21,8 @@ log = logging.getLogger(__name__)
 import functools
 print = functools.partial(print, flush=True)
 
+EPISODE_TIMEOUT = 120 # in minutes
+
 class EpisodeExecutor(multiprocessing.Process):
     def __init__(self, game, args, queue, id, log_to_file, log_folder):
         multiprocessing.Process.__init__(self)
@@ -126,7 +128,7 @@ class Coach():
                     for thread in threads:
                         thread.start()
                     for thread in threads:
-                        thread.join()
+                        thread.join(EPISODE_TIMEOUT * 60)
                     # for thread in threads:
                     #     resTrainExamples = thread.collect()
                     #     print(resTrainExamples)
