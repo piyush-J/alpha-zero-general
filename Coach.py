@@ -6,6 +6,7 @@ from collections import deque
 from pickle import Pickler, Unpickler
 from random import shuffle
 
+import time
 import datetime
 import numpy as np
 from tqdm import tqdm
@@ -32,10 +33,10 @@ class EpisodeExecutor(multiprocessing.Process):
         self.q = queue
         self.log_to_file = log_to_file
         self.log_file = log_folder + str(id) + ".log"
-        # self.context = Context()
         self.mcts = MCTS(self.args, self.log_file)
 
     def run(self):
+        episode_before_time = time.time()
         board = self.game.getInitBoard(self.id)
         episodeStep = 0
         trainExamples = []
@@ -56,11 +57,14 @@ class EpisodeExecutor(multiprocessing.Process):
             r = self.game.getGameEnded(board)
 
             if r != 0:
+                episode_after_time = time.time()
+                episode_time = episode_after_time - episode_before_time
                 if self.log_to_file:
                     with open(self.log_file,'a+') as f:
                         f.write(f"Final board {board}\n")
                         f.write(f"Actions: {board.priorActions}\n")
-                        f.write(f"Game over: Return {r}\n\n")
+                        f.write(f"Game over: Return {r}\n")
+                        f.write(f"Episode Total Time: {episode_time/60} minutes\n")
                 # log.info(f"Final board\n{board} with reward {r}")
                 train_samples = [(x[0], x[1], r) for x in trainExamples] # update the reward for the previous moves
                 if (self.game.is_solvable(self.id)):
@@ -122,13 +126,17 @@ class Coach():
                 q = multiprocessing.Queue()
                 for j in tqdm(range(0, self.args.numEps, self.train_batch), desc="Batch Self Play"):
                     batch_instance_ids = range(j, min(j+self.train_batch, self.args.numEps))
-                    threads = []
+                    processes = []
                     for id in batch_instance_ids:
-                        threads.append(EpisodeExecutor(self.game, self.args, q, id, self.log_to_file, iterLogFolder))
-                    for thread in threads:
-                        thread.start()
-                    for thread in threads:
-                        thread.join(EPISODE_TIMEOUT * 60)
+                        processes.append(EpisodeExecutor(self.game, self.args, q, id, self.log_to_file, iterLogFolder))
+                    for process in processes:
+                        process.start()
+                    t1 = time.time()
+                    for process in processes:
+                        t2 = time.time()
+                        process.join(max(1, EPISODE_TIMEOUT * 60))
+                    for process in processes:
+                        if process.is_alive(): process.terminate()
                     # for thread in threads:
                     #     resTrainExamples = thread.collect()
                     #     print(resTrainExamples)

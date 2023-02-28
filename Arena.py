@@ -3,7 +3,7 @@ import logging
 from Runner import Runner
 
 from tqdm import tqdm
-import threading
+import multiprocessing
 import time
 
 log = logging.getLogger(__name__)
@@ -37,7 +37,6 @@ class PlanningArena():
         Returns:
             average solved, average total time (averaged by self.iter)
         """
-
         f = open(self.log_file,'a+')
         f.write("Start playGames: \n")
         f.close()
@@ -49,28 +48,28 @@ class PlanningArena():
             f.close()
             solved = 0
             totalTime = 0
+            q = multiprocessing.Queue()
             for i in tqdm(range(0, num, self.val_batch), desc="Arena.playGames"):
                 batch_instance_ids = range(i,min(i+self.val_batch, num))
-
-                threads = []
+                processes = []
                 for id in batch_instance_ids:
                     board = self.game.getInitBoard(id)
-                    threads.append(Runner(self.nnet, board, self.total_timeout, self.game.tactic_timeout))
-                for thread in threads:
-                    thread.start()
+                    processes.append(Runner(self.nnet, board, self.total_timeout, self.game.tactic_timeout, q))
+                for process in processes:
+                    process.start()
                 t1 = time.time()
-                for thread in threads:
+                for process in processes:
                     t2 = time.time()
-                    thread.join(max(0.0001, self.total_timeout-(t2-t1)))
-                for thread in threads:
-                    result, rlimit, time_res, nn_time, solver_time, log_info = thread.collect()
-                    if self.log_to_file:
-                        f = open(self.log_file,'a+')
-                        f.write(log_info)
-                        f.close()
-                    if not result is None:
-                        solved += 1
-                        totalTime += time_res
+                    process.join(max(0.0001, self.total_timeout + self.game.tactic_timeout - (t2-t1) + 10)) # the timeout used in this join is not for real total timeout; just prevent deadlock
+                for process in processes:
+                    if process.is_alive(): process.terminate()
+            while (not q.empty()):
+                result, rlimit, time_res, nn_time, solver_time, log_info = q.get()
+                if self.log_to_file:
+                    with open(self.log_file,'a+') as f: f.write(log_info)
+                if not result is None:
+                    solved += 1
+                    totalTime += time_res
             print(f"In iter {it}: {solved} instances solved with total time {totalTime}\n")
             solvedLst.append(solved)
             totalTimeLst.append(totalTime)

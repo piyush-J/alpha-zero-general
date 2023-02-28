@@ -137,8 +137,8 @@ class Board(): # Keep its name as Board for now; may call it goal later
     def is_timeout(self):
         return self.accTime > self.total_timeout
 
-    def is_done(self):
-        return self.is_win() or self.is_timeout()
+    # def is_done(self):
+    #     return self.is_win() or self.is_timeout()
 
     # TO_DO: currently no_change or fail just mean in the process it has happened sometime
     # with the current caching design, timeout cannot be changed for a formula
