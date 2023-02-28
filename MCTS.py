@@ -23,7 +23,7 @@ class MCTS():
         self.Ps = {}  # stores initial policy (returned by neural net)
 
         self.Es = {}  # stores game.getGameEnded ended for board s
-        self.Vs = {}  # stores game.getValidMoves for board s
+        # self.Vs = {}  # stores game.getValidMoves for board s - dynamic because of sat_unsat_actions
 
     def getActionProb(self, game, board, temp=1, verbose=False):
         """
@@ -75,24 +75,33 @@ class MCTS():
         """
 
         s = game.stringRepresentation(canonicalBoard)
-        # log.info(f"At level {level}\n{s}")
 
-        if s not in self.Es:
+        if verbose:
+            log.info(f"At level {level}\n{s}")
+
+        if s not in self.Es: # STEP 2: EXPANSION
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
             self.Es[s] = game.getGameEnded(canonicalBoard)
 
-        if self.Es[s] != None: # reward
+        if self.Es[s] != None: # STEP 4 (I): BACKPROPAGATION
             # terminal node
             if verbose:
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
             return self.Es[s]
+        
+        if sum(game.getValidMoves(canonicalBoard)) == 0:
+            # terminal node
+            if verbose:
+                log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
+            print(canonicalBoard)
+            return self.Es[s]
 
-        if s not in self.Ps:
+        if s not in self.Ps: # STEP 3: ROLLOUT or SIMULATION (use NN to predcit the value, i.e., the end reward to be backpropagated)
             # leaf node
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
-            self.Ps[s], v = self.nnet.predict(canonicalBoard)
+            self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
@@ -107,16 +116,15 @@ class MCTS():
                 self.Ps[s] = self.Ps[s] + valids
                 self.Ps[s] /= np.sum(self.Ps[s])
 
-            self.Vs[s] = valids
             self.Ns[s] = 0
-            return v
+            return v # STEP 4 (II): BACKPROPAGATION
 
-        valids = self.Vs[s]
+        valids = game.getValidMoves(canonicalBoard)
         cur_best = -float('inf')
         best_act = -1
 
         # pick the action with the highest upper confidence bound
-        for a in range(game.getActionSize()-1):
+        for a in range(game.getActionSize()): # STEP 1: SELECTION
             if valids[a]:
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (

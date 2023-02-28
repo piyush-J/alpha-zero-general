@@ -4,6 +4,7 @@ import time
 
 import numpy as np
 from tqdm import tqdm
+from ksgraph.KSLogic import Board
 
 sys.path.append('../')
 from utils import *
@@ -19,15 +20,18 @@ args = dotdict({
     'dropout': 0.3,
     'epochs': 10,
     'batch_size': 64,
-    'cuda': torch.cuda.is_available(),
+    'cuda': False, #torch.cuda.is_available(),
     'num_channels': 512,
+    'embedding_size': 64,
 })
-
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game):
         self.nnet = ksnnet(game, args)
-        self.board_x, self.board_y = game.getBoardSize()
+        self.board_x = game.getBoardSize()	
+        self.action_size = game.getActionSize()	
+        # self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')	
+        self.device = "cuda:0" if args.cuda else "cpu"
 
         if args.cuda:
             self.nnet.cuda()
@@ -50,7 +54,7 @@ class NNetWrapper(NeuralNet):
             for _ in t:
                 sample_ids = np.random.randint(len(examples), size=args.batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                boards = torch.FloatTensor(np.array(boards).astype(np.float64))
+                boards = torch.IntTensor(np.array(boards).astype(np.int32))
                 target_pis = torch.FloatTensor(np.array(pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
 
@@ -65,8 +69,8 @@ class NNetWrapper(NeuralNet):
                 total_loss = l_pi + l_v
 
                 # record loss
-                pi_losses.update(l_pi.item(), boards.size(0))
-                v_losses.update(l_v.item(), boards.size(0))
+                pi_losses.update(l_pi.item(), len(boards)) # TODO: boards.size(0) does not work for tokenized boards, replace with batch size?	
+                v_losses.update(l_v.item(), len(boards))
                 t.set_postfix(Loss_pi=pi_losses, Loss_v=v_losses)
 
                 # compute gradient and do SGD step
@@ -81,16 +85,21 @@ class NNetWrapper(NeuralNet):
         # timing
         start = time.time()
 
+        if isinstance(board, Board):	
+            print("Board instance passed to predict")	
+            board = board.get_state()	
+        # print(board)
+
         # preparing input
-        board = torch.FloatTensor(board.astype(np.float64))
+        board = torch.IntTensor(board.astype(np.int32))
         if args.cuda: board = board.contiguous().cuda()
-        board = board.view(1, self.board_x, self.board_y)
+        board = board.view(1, self.board_x)
         self.nnet.eval()
         with torch.no_grad():
             pi, v = self.nnet(board)
 
         # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
-        return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
+        return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0][0]
 
     def loss_pi(self, targets, outputs):
         return -torch.sum(targets * outputs) / targets.size()[0] # TODO: why not using NLL?
