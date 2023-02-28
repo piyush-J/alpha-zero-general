@@ -90,12 +90,12 @@ class MCTS():
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
             return self.Es[s]
         
-        if sum(game.getValidMoves(canonicalBoard)) == 0:
-            # terminal node
+        if sum(game.getValidMoves(canonicalBoard)) == 0: # TODO: optimize later
+            # terminal node when you are out of valid moves
+            rew = game.getGameEnded(canonicalBoard) # need to recompute reward - run Solver
             if verbose:
-                log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
-            print(canonicalBoard)
-            return self.Es[s]
+                log.info(f"Node is terminal node, reward is {rew}\n{s}")
+            return rew
 
         if s not in self.Ps: # STEP 3: ROLLOUT or SIMULATION (use NN to predcit the value, i.e., the end reward to be backpropagated)
             # leaf node

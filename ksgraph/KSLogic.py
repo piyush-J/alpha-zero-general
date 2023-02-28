@@ -17,7 +17,6 @@ class Board:
         self.cnf_clauses = copy.deepcopy(cnf.clauses) # first call would have CNF object
         self.nlits = cnf.nv # number of variables in the CNF formula
         self.extra_lits = list(range(MAX_LITERALS+1, self.nlits+1, 1))+list(range(-MAX_LITERALS-1, -self.nlits-1, -1)) # extra variabls not part of the action space
-        self.res = None
         self.edge_dict = edge_dict
 
         self.step = 0
@@ -25,6 +24,7 @@ class Board:
         self.sat_or_unsat_leaf = 0
         self.prior_actions = []
         self.sat_unsat_actions = [] # actions that lead to a sat or unsat leaf - to be removed from the legal action space
+        self.res = None
 
         literals_pos = list(range(1,MAX_LITERALS+1))
         literals_neg = [-l for l in literals_pos]
@@ -34,11 +34,11 @@ class Board:
         self.var2lits = dict(zip(vars_all, literals_all))
 
     def __str__(self):
-        return f"nlits: {self.nlits}, res: {self.res}, step: {self.step}, total_rew: {self.total_rew}, sat_or_unsat_leaf: {self.sat_or_unsat_leaf}, prior_actions: {self.prior_actions}, sat_unsat_actions: {self.sat_unsat_actions}"
+        return f"Board: {self.get_flattened_clause()}, nlits: {self.nlits}, res: {self.res}, step: {self.step}, total_rew: {self.total_rew}, sat_or_unsat_leaf: {self.sat_or_unsat_leaf}, prior_actions: {self.prior_actions}, sat_unsat_actions: {self.sat_unsat_actions}"
 
-    def is_giveup(self):
-        return self.step > STEP_UPPER_BOUND
-
+    def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are no legal moves left
+        return self.step > STEP_UPPER_BOUND or len(self.get_legal_moves()) == 0 
+    
     def is_win(self):
         return self.res == 1
     
@@ -74,12 +74,9 @@ class Board:
         
         clauses = list(itertools.chain.from_iterable(clauses)) # flatten the list
         return np.array(clauses)
-
+    
     def get_legal_moves(self):
-        if self.is_done():
-            raise Exception("Game is already over")
-        else:
-            return set(self.get_flattened_clause()) - set([0]+[self.var2lits[v] for v in self.sat_unsat_actions]+self.extra_lits) # remove the clause separator from the list of legal moves
+        return set(self.get_flattened_clause()) - set([0]+[self.var2lits[v] for v in self.sat_unsat_actions]+self.extra_lits) # remove the clause separator from the list of legal moves
         
     def execute_move(self, action):
         assert self.is_done() == False
@@ -87,7 +84,7 @@ class Board:
 
         new_state.step += 1
         chosen_literal = [new_state.var2lits[action]]
-        self.prior_actions.append(new_state.var2lits[action])
+        new_state.prior_actions.append(new_state.var2lits[action])
         
         with Solver(bootstrap_with=new_state.cnf_clauses) as solver:
             out = solver.propagate(assumptions=chosen_literal)

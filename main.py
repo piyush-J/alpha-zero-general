@@ -32,16 +32,8 @@ args = dotdict({
 
 
 def main():
-    # domainactions = [DomainAction(urn=1, duration=2), DomainAction(urn=2, duration=2),
-    #                  DomainAction(urn=3, duration=1), DomainAction(urn=4, duration=1),
-    #                  DomainAction(urn=5, duration=2), DomainAction(urn=6, duration=1)]
-    # machines = 6
-    # timesteps = 6
-
     log.info(f'Loading {KSGame.__name__}...')
-    # g = KSGame(machines=machines, timesteps=timesteps, domainactions=domainactions,rewardstrategy=MinSpanTimeRewardStrategy(-((machines*timesteps) + 1)))
-    g = KSGame() # machines=machines, timesteps=timesteps, domainactions=domainactions,rewardstrategy=RelativeProductRewardStrategy(-((machines**timesteps)+1)))
-    
+    g = KSGame() 
     log.info('Loading %s...', ksnn.__name__)
     nnet = ksnn(g)
 
