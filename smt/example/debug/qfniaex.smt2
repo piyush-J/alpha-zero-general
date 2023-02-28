@@ -1,8 +1,0 @@
-(set-info :smt-lib-version 2.6)
-(set-logic QF_NIA)
-(set-info :category "crafted")
-(set-info :status sat)
-(declare-fun n0 () Int)
-(assert (>= n0 0))
-(check-sat)
-(exit)
