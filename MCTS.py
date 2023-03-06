@@ -138,13 +138,19 @@ class MCTS():
 
         a = best_act
         #TODO: see why this is needed - is it because of the recursion? creating a copy because the game is modified in-place?
-        game_copy = game.get_copy()
-        next_s = game_copy.getNextState(canonicalBoard, a)
-        # next_s = self.game.getCanonicalForm(next_s)
-        if verbose:
-            log.info(f"Non-leaf node, considering action {a} resulting in\n{next_s}")
+        game_copy_dir1 = game.get_copy()
+        next_s_dir1 = game_copy_dir1.getNextState(canonicalBoard, a)
 
-        v = self.search(game_copy, next_s, level=level+1)
+        comp_a = canonicalBoard.get_complement_action(a) # complement of the literal
+        game_copy_dir2 = game.get_copy()
+        next_s_dir2 = game_copy_dir2.getNextState(canonicalBoard, comp_a)
+
+        if verbose:
+            log.info(f"Non-leaf node, considering action {a}, {comp_a} resulting in\n{next_s_dir1}, {next_s_dir2}")
+
+        v1 = self.search(game_copy_dir1, next_s_dir1, level=level+1)
+        v2 = self.search(game_copy_dir2, next_s_dir2, level=level+1)
+        v = v1 + v2
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)

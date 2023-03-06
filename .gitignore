@@ -11,3 +11,5 @@ checkpoints/
 # For PyCharm users
 .idea/
 
+# Project specific
+wandb/

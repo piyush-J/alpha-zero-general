@@ -47,6 +47,13 @@ class Board:
 
     def is_done(self):
         return self.is_giveup() or self.is_win() or self.is_fail()
+    
+    def get_complement_action(self, action): # action is a var
+        action_lits = self.var2lits[action]
+        action_lits_comp = -action_lits
+        action_comp = self.lits2var[action_lits_comp]
+        assert action_comp != action and action_comp > 0
+        return action_comp # returned action is a var
         
     def get_state(self):
         clauses = copy.deepcopy(self.cnf_clauses)
@@ -115,7 +122,7 @@ class Board:
         if self.is_done():
             if self.is_win() or self.is_fail():
                 return -1 # dicourage the agent from exploring this again
-            elif self.is_giveup(): # call the solver to get the result
+            elif self.is_giveup(): # call the solver to get the result + also used by Arena
                 with Solver(bootstrap_with=self.cnf_clauses, use_timer=True) as solver:
                     res = solver.solve()
                     time_s = solver.time()

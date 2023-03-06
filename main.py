@@ -9,6 +9,8 @@ from ksgraph.KSGame import KSGame
 
 from utils import *
 
+import wandb
+
 log = logging.getLogger(__name__)
 
 coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
@@ -28,10 +30,27 @@ args = dotdict({
     'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
     'numItersForTrainExamplesHistory': 20,
 
+    'CCenv': False,
+    'model_name': 'DNN',
+    'model_notes': 'Basic DNN model during initial testing',
+    'model_mode': 'mode-0',
+    'phase': 'initial-testing',
 })
 
 
 def main():
+
+    # wandb login
+
+    wandb.init(reinit=True, 
+                project="AlphaSAT", 
+                tags=[args.model_name, args.model_mode, args.phase], 
+                notes=args.model_notes, 
+                settings=wandb.Settings(start_method='fork' if args.CCenv else 'thread'), 
+                save_code=True)
+
+    wandb.config.update(args)
+
     log.info(f'Loading {KSGame.__name__}...')
     g = KSGame() 
     log.info('Loading %s...', ksnn.__name__)
@@ -53,6 +72,7 @@ def main():
     log.info('Starting the learning process 🎉')
     c.learn()
 
+    # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
 
 if __name__ == "__main__":
     main()
