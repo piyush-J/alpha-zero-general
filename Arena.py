@@ -46,7 +46,7 @@ class PlanningArena():
                     "max": np.mean(avg_max1),
                     "iteration": self.iter})
 
-        log.info(f"LEAF REWARDS for {agentString} - \
+        log.info(f"LEAF TIMES for {agentString} - \
                  Count: {np.mean(avg_count1)}, \
                  Entropy: {np.mean(entropy1)}, \
                  Mean: {np.mean(avg_mean1)}, \
@@ -67,7 +67,9 @@ class PlanningArena():
         if reward_now: # reward is not None, i.e., game over
             if board.is_giveup():
                 solver_time.append(-reward_now*10)
-            return reward_now # only leaves have rewards & leaves don't have neighbors
+            return reward_now # only leaves have rewards & also leaves don't have neighbors
+        else: # None
+            reward_now = 0 # initialize reward for non-leaf nodes
 
         # Non-leaf nodes
         valids = game.getValidMoves(board)

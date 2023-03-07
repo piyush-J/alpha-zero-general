@@ -17,12 +17,12 @@ coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
 args = dotdict({
     'numIters': 10,           # TODO: Change this to 1000
-    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
-    'tempThreshold': 15,        #
+    'numEps': 50,              # Number of complete self-play games to simulate during a new iteration.
+    'tempThreshold': 10,        #
     'updateThreshold': 0.6,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks. #TODO: Change this to 200000
     'numMCTSSims': 25,          # Number of games moves for MCTS to simulate.
-    'arenaCompare': 40,         # Number of games to play during arena play to determine if new net will be accepted.
+    'arenaCompare': 20,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1,                 # controls the amount of exploration
 
     'checkpoint': './temp/',
@@ -35,6 +35,8 @@ args = dotdict({
     'model_notes': 'Basic DNN model during initial testing',
     'model_mode': 'mode-0',
     'phase': 'initial-testing',
+
+    'debugging': False,
 })
 
 
@@ -42,12 +44,15 @@ def main():
 
     # wandb login
 
-    wandb.init(reinit=True, 
-                project="AlphaSAT", 
-                tags=[args.model_name, args.model_mode, args.phase], 
-                notes=args.model_notes, 
-                settings=wandb.Settings(start_method='fork' if args.CCenv else 'thread'), 
-                save_code=True)
+    if args.debugging:
+        wandb.init(mode="disabled")
+    else:
+        wandb.init(reinit=True, 
+                    project="AlphaSAT", 
+                    tags=[args.model_name, args.model_mode, args.phase], 
+                    notes=args.model_notes, 
+                    settings=wandb.Settings(start_method='fork' if args.CCenv else 'thread'), 
+                    save_code=True)
 
     wandb.config.update(args)
 

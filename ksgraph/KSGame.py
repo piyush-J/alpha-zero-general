@@ -56,8 +56,9 @@ class KSGame(Game):
         return new_board
 
     def getValidMoves(self, board):
+        assert not board.is_done()
         valids = [0]*self.getActionSize()
-        legalMoves =  [board.lits2var[l] for l in board.get_legal_moves()]
+        legalMoves =  [board.lits2var[l] for l in board.get_legal_literals()]
         for x in legalMoves:
             valids[x]=1
         return np.array(valids)

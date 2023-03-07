@@ -39,14 +39,14 @@ class Coach():
         
         # visited.add(v) # no need if we are using a tree
 
-        temp = int(level < self.args.tempThreshold)
-        pi = self.mcts.getActionProb(game, board, temp=temp)
         reward_now = game.getGameEnded(board)
         if reward_now: # reward is not None, i.e., game over
-            trainExamples.append([board.get_state(), pi, reward_now])
             return reward_now # only leaves have rewards & leaves don't have neighbors
-
+        else: # None
+            reward_now = 0 # initialize reward for non-leaf nodes
         # Non-leaf nodes
+        temp = int(level < self.args.tempThreshold)
+        pi = self.mcts.getActionProb(game, board, temp=temp)
         valids = game.getValidMoves(board)
 
         a = np.random.choice(len(pi), p=pi)
@@ -127,7 +127,7 @@ class Coach():
             nmcts = MCTS(self.nnet, self.args)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
-            random_action_agent = lambda game, board: np.random.choice([board.lits2var[l] for l in board.get_legal_moves()])
+            random_action_agent = lambda game, board: np.random.choice([board.lits2var[l] for l in board.get_legal_literals()])
             arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
                                     lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc, i)#, display=print)
             prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False, vsRandom=None) # pass random_action_agent

@@ -16,14 +16,14 @@ class Board:
     def __init__(self, cnf, edge_dict):
         self.cnf_clauses = copy.deepcopy(cnf.clauses) # first call would have CNF object
         self.nlits = cnf.nv # number of variables in the CNF formula
-        self.extra_lits = list(range(MAX_LITERALS+1, self.nlits+1, 1))+list(range(-MAX_LITERALS-1, -self.nlits-1, -1)) # extra variabls not part of the action space
+        self.extra_lits = list(range(MAX_LITERALS+1, self.nlits+1, 1))+list(range(-MAX_LITERALS-1, -self.nlits-1, -1)) # extra lits not part of the action space
         self.edge_dict = edge_dict
 
         self.step = 0
         self.total_rew = 0
         self.sat_or_unsat_leaf = 0
         self.prior_actions = []
-        self.sat_unsat_actions = [] # actions that lead to a sat or unsat leaf - to be removed from the legal action space
+        self.sat_unsat_actions = set() # actions that lead to a sat or unsat leaf - to be removed from the legal action space
         self.res = None
 
         literals_pos = list(range(1,MAX_LITERALS+1))
@@ -36,8 +36,8 @@ class Board:
     def __str__(self):
         return f"Board: {self.get_flattened_clause()}, nlits: {self.nlits}, res: {self.res}, step: {self.step}, total_rew: {self.total_rew}, sat_or_unsat_leaf: {self.sat_or_unsat_leaf}, prior_actions: {self.prior_actions}, sat_unsat_actions: {self.sat_unsat_actions}"
 
-    def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are no legal moves left
-        return self.step > STEP_UPPER_BOUND or len(self.get_legal_moves()) == 0 
+    def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
+        return self.step > STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0 
     
     def is_win(self):
         return self.res == 1
@@ -63,7 +63,7 @@ class Board:
         clauses = list(itertools.chain.from_iterable(clauses)) # flatten the list
         clauses = [self.nlits + (-c) if c<0 else c for c in clauses] # treat the negative literals as a new literal (for convenient MCTS action space)
         clauses_padded = clauses[:MAX_CLAUSE_EMBED] + [0]*(MAX_CLAUSE_EMBED-len(clauses)) # pad the list with 0s
-        return np.array(clauses_padded)
+        return np.array(clauses_padded) # literals are mapped to vars
 
     def get_state_complete(self): # no truncation or padding
         clauses = copy.deepcopy(self.cnf_clauses)
@@ -72,7 +72,7 @@ class Board:
         
         clauses = list(itertools.chain.from_iterable(clauses)) # flatten the list
         clauses = [self.nlits + (-c) if c<0 else c for c in clauses] # treat the negative literals as a new literal (for convenient MCTS action space)
-        return np.array(clauses)
+        return np.array(clauses) # literals are mapped to vars
     
     def get_flattened_clause(self): # no mapping or truncation or padding
         clauses = copy.deepcopy(self.cnf_clauses)
@@ -80,13 +80,15 @@ class Board:
             clauses[i].append(0) # add the clause separator
         
         clauses = list(itertools.chain.from_iterable(clauses)) # flatten the list
-        return np.array(clauses)
+        return np.array(clauses) # literals are not mapped to vars
     
-    def get_legal_moves(self):
-        return set(self.get_flattened_clause()) - set([0]+[self.var2lits[v] for v in self.sat_unsat_actions]+self.extra_lits) # remove the clause separator from the list of legal moves
+    def get_legal_literals(self):
+        return set(self.get_flattened_clause()) - set([0]+self.extra_lits) # remove the clause separator from the list of legal moves
         
     def execute_move(self, action):
         assert self.is_done() == False
+        # if action not in [self.lits2var[l] for l in self.get_legal_literals()]:
+        #     print("Illegal move!")
         new_state = copy.deepcopy(self)
 
         new_state.step += 1
@@ -105,7 +107,7 @@ class Board:
             new_state.cnf_clauses = [[]]
             new_state.sat_or_unsat_leaf += 1
             self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
-            self.sat_unsat_actions.append(action) # add the action to the list of actions (of the parent) that lead to a sat or unsat leaf
+            self.sat_unsat_actions.add(action) # add the action to the list of actions (of the parent) that lead to a sat or unsat leaf
 
         else:
             clauses_interm = [c for c in new_state.cnf_clauses if all(r not in c for r in chosen_literal)] # remove the clauses that contain the chosen literal
@@ -114,14 +116,14 @@ class Board:
                 new_state.res = 1
                 new_state.sat_or_unsat_leaf += 1
                 self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
-                self.sat_unsat_actions.append(action) # add the action to the list of actions (of the parent) that lead to a sat or unsat leaf
+                self.sat_unsat_actions.add(action) # add the action to the list of actions (of the parent) that lead to a sat or unsat leaf
 
         return new_state
 
     def compute_reward(self):
         if self.is_done():
             if self.is_win() or self.is_fail():
-                return -1 # dicourage the agent from exploring this again
+                return 1 # positive reward
             elif self.is_giveup(): # call the solver to get the result + also used by Arena
                 with Solver(bootstrap_with=self.cnf_clauses, use_timer=True) as solver:
                     res = solver.solve()
