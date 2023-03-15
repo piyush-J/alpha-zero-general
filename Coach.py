@@ -134,7 +134,7 @@ class Coach():
 
             log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
             wandb.log({"new_rewards": nrewards, "prev_rewards": prewards, "iteration": i})
-            if nrewards == prewards or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
+            if nrewards <= prewards: # or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
                 log.info('REJECTING NEW MODEL')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:

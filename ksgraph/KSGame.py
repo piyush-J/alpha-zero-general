@@ -52,6 +52,7 @@ class KSGame(Game):
         return self.cnf.nv
 
     def getNextState(self, board, action):
+        assert action > 0, "Invalid action"
         new_board = board.execute_move(action)
         return new_board
 

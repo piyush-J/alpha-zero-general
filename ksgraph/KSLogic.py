@@ -6,6 +6,7 @@ from abc import abstractmethod
 import copy
 
 from pysat.solvers import Solver
+import wandb
 
 MAX_LITERALS = 10
 MAX_CLAUSE_EMBED = 500
@@ -19,6 +20,7 @@ class Board:
         self.extra_lits = list(range(MAX_LITERALS+1, self.nlits+1, 1))+list(range(-MAX_LITERALS-1, -self.nlits-1, -1)) # extra lits not part of the action space
         self.edge_dict = edge_dict
 
+        self.arena_mode = 0 # 0: normal mode, 1: arena mode
         self.step = 0
         self.total_rew = 0
         self.sat_or_unsat_leaf = 0
@@ -37,7 +39,7 @@ class Board:
         return f"Board: {self.get_flattened_clause()}, nlits: {self.nlits}, res: {self.res}, step: {self.step}, total_rew: {self.total_rew}, sat_or_unsat_leaf: {self.sat_or_unsat_leaf}, prior_actions: {self.prior_actions}, sat_unsat_actions: {self.sat_unsat_actions}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.step > STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0 
+        return self.res is None and (self.step > STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def is_win(self):
         return self.res == 1
@@ -101,9 +103,11 @@ class Board:
             not_unsat, asgn = out
         
         new_state.total_rew += len(asgn) # reward is the number of literals that are assigned (eval_var)
+        wandb.log({"eval_var": len(asgn), "arena_mode": self.arena_mode})
 
         if not not_unsat: # unsat
             new_state.res = 0
+            wandb.log({"unsat": 1, "arena_mode": self.arena_mode})
             new_state.cnf_clauses = [[]]
             new_state.sat_or_unsat_leaf += 1
             self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
@@ -113,6 +117,7 @@ class Board:
             clauses_interm = [c for c in new_state.cnf_clauses if all(r not in c for r in chosen_literal)] # remove the clauses that contain the chosen literal
             new_state.cnf_clauses = [[l for l in c if all(l!=-r for r in chosen_literal)] for c in clauses_interm] # remove the negation of chosen literal from the remaining clauses
             if new_state.cnf_clauses == []: # sat
+                wandb.log({"sat": 1, "arena_mode": self.arena_mode})
                 new_state.res = 1
                 new_state.sat_or_unsat_leaf += 1
                 self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
@@ -125,9 +130,11 @@ class Board:
             if self.is_win() or self.is_fail():
                 return 1 # positive reward
             elif self.is_giveup(): # call the solver to get the result + also used by Arena
+                wandb.log({"giveup": 1, "arena_mode": self.arena_mode})
                 with Solver(bootstrap_with=self.cnf_clauses, use_timer=True) as solver:
                     res = solver.solve()
                     time_s = solver.time()
+                    wandb.log({"solver_time": time_s, "arena_mode": self.arena_mode})
                     assert time_s is not None
                     return -time_s/10 # penalty is the time it takes to solve the problem (seconds / 10)
             else:

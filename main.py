@@ -16,13 +16,13 @@ log = logging.getLogger(__name__)
 coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
 args = dotdict({
-    'numIters': 10,           # TODO: Change this to 1000
-    'numEps': 50,              # Number of complete self-play games to simulate during a new iteration.
+    'numIters': 1,           # TODO: Change this to 1000
+    'numEps': 3,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 10,        #
-    'updateThreshold': 0.6,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
-    'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks. #TODO: Change this to 200000
+    'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
+    'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
     'numMCTSSims': 25,          # Number of games moves for MCTS to simulate.
-    'arenaCompare': 20,         # Number of games to play during arena play to determine if new net will be accepted.
+    'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1,                 # controls the amount of exploration
 
     'checkpoint': './temp/',
@@ -36,7 +36,7 @@ args = dotdict({
     'model_mode': 'mode-0',
     'phase': 'initial-testing',
 
-    'debugging': False,
+    'debugging': True,
 })
 
 
@@ -48,6 +48,7 @@ def main():
         wandb.init(mode="disabled")
     else:
         wandb.init(reinit=True, 
+                    name=args.model_name+"_"+args.model_mode+"_"+args.phase,
                     project="AlphaSAT", 
                     tags=[args.model_name, args.model_mode, args.phase], 
                     notes=args.model_notes, 

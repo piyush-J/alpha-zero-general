@@ -19,7 +19,7 @@ class KSNNet(nn.Module):
         super(KSNNet, self).__init__()
 
         # *2 for positive and negative and +1 for clause separator 0
-        self.embeddings = nn.Embedding(self.nv*2+1, self.args.embedding_size, padding_idx=0) 
+        self.embeddings = nn.Embedding(self.nv*2+1, self.args.embedding_size) # TODO: Think - not considering the 0 as padding idx
 
         self.fc1 = nn.Linear(self.board_x*self.args.embedding_size, 256)
         self.fc_bn1 = nn.BatchNorm1d(256)
