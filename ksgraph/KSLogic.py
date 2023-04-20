@@ -28,6 +28,10 @@ class Board:
         self.sat_unsat_actions = set() # actions that lead to a sat or unsat leaf - to be removed from the legal action space
         self.res = None
 
+        self.counter_sat = 0
+        self.counter_unsat = 0
+        self.counter_giveup = 0
+
         literals_pos = list(range(1,MAX_LITERALS+1))
         literals_neg = [-l for l in literals_pos]
         literals_all = literals_pos + literals_neg
@@ -49,6 +53,13 @@ class Board:
 
     def is_done(self):
         return self.is_giveup() or self.is_win() or self.is_fail()
+    
+    def get_and_reset_counters(self):
+        counters = [self.counter_sat, self.counter_unsat, self.counter_giveup]
+        self.counter_sat = 0
+        self.counter_unsat = 0
+        self.counter_giveup = 0
+        return counters
     
     def get_complement_action(self, action): # action is a var
         action_lits = self.var2lits[action]
@@ -103,11 +114,11 @@ class Board:
             not_unsat, asgn = out
         
         new_state.total_rew += len(asgn) # reward is the number of literals that are assigned (eval_var)
-        wandb.log({"eval_var": len(asgn), "arena_mode": self.arena_mode})
+        # wandb.log({"eval_var": len(asgn), "arena_mode": self.arena_mode})
 
         if not not_unsat: # unsat
             new_state.res = 0
-            wandb.log({"unsat": 1, "arena_mode": self.arena_mode})
+            self.counter_unsat += 1
             new_state.cnf_clauses = [[]]
             new_state.sat_or_unsat_leaf += 1
             self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
@@ -117,7 +128,7 @@ class Board:
             clauses_interm = [c for c in new_state.cnf_clauses if all(r not in c for r in chosen_literal)] # remove the clauses that contain the chosen literal
             new_state.cnf_clauses = [[l for l in c if all(l!=-r for r in chosen_literal)] for c in clauses_interm] # remove the negation of chosen literal from the remaining clauses
             if new_state.cnf_clauses == []: # sat
-                wandb.log({"sat": 1, "arena_mode": self.arena_mode})
+                self.counter_sat += 1
                 new_state.res = 1
                 new_state.sat_or_unsat_leaf += 1
                 self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
@@ -127,17 +138,23 @@ class Board:
 
     def compute_reward(self):
         if self.is_done():
-            if self.is_win() or self.is_fail():
-                return 1 # positive reward
+            if self.is_win():
+                return 1, self.prior_actions # positive reward, and the model is the list of actions that led to the win
+            elif self.is_fail():
+                return 1, None
             elif self.is_giveup(): # call the solver to get the result + also used by Arena
-                wandb.log({"giveup": 1, "arena_mode": self.arena_mode})
+                self.counter_giveup += 1
                 with Solver(bootstrap_with=self.cnf_clauses, use_timer=True) as solver:
-                    res = solver.solve()
+                    res = solver.solve(assumptions=self.prior_actions)
+                    if res: 
+                        solver_model = solver.get_model() # assumptions are included
+                    else:
+                        solver_model = None
                     time_s = solver.time()
-                    wandb.log({"solver_time": time_s, "arena_mode": self.arena_mode})
+                    wandb.log({"solver_time": time_s, "arena_mode": self.arena_mode, "eval_var": self.total_rew})
                     assert time_s is not None
-                    return -time_s/10 # penalty is the time it takes to solve the problem (seconds / 10)
+                    return -time_s/10, solver_model # penalty is the time it takes to solve the problem (seconds / 10)
             else:
                 raise Exception("Unknown game state")
         else:
-            return None
+            return None, None

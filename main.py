@@ -21,8 +21,8 @@ args = dotdict({
     'tempThreshold': 10,        #
     'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-    'numMCTSSims': 25,          # Number of games moves for MCTS to simulate.
-    'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
+    'numMCTSSims': 5,          # Number of games moves for MCTS to simulate.
+    'arenaCompare': 3,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1,                 # controls the amount of exploration
 
     'checkpoint': './temp/',
@@ -36,7 +36,7 @@ args = dotdict({
     'model_mode': 'mode-0',
     'phase': 'initial-testing',
 
-    'debugging': True,
+    'debugging': False,
 })
 
 
@@ -78,6 +78,38 @@ def main():
     log.info('Starting the learning process 🎉')
     c.learn()
 
+    data = [[x, y] for (x, y) in zip(g.log_giveup_rew, g.log_eval_var)]
+    table = wandb.Table(data=data, columns = ["solver_reward (NA)", "eval_var (NA)"])
+    wandb.log({"solver_rew vs eval_var (Non-Arena)" : wandb.plot.scatter(table,
+                                "solver_reward (NA)", "eval_var (NA)")})
+    
+    data = [[x, y] for (x, y) in zip(g.log_giveup_rewA, g.log_eval_varA)]
+    table = wandb.Table(data=data, columns = ["solver_reward (A)", "eval_var (A)"])
+    wandb.log({"solver_rew vs eval_var (Arena)" : wandb.plot.scatter(table,
+                                "solver_reward (A)", "eval_var (A)")})
+    
+    # data = [[s] for s in g.log_giveup_rewA]
+    # table = wandb.Table(data=data, columns=["solver_reward"])
+    wandb.log({'Solver rewards (Arena)': wandb.plot.histogram(table, "solver_reward (A)",
+                            title="Histogram")})
+    
+    # data = [[s] for s in g.log_eval_varA]
+    # table = wandb.Table(data=data, columns=["eval_var"])
+    wandb.log({'Eval Var (Arena)': wandb.plot.histogram(table, "eval_var (A)",
+                            title="Histogram")})
+    
+    if len(g.log_sat_asgn) > 0:
+        log_sat_asgn_set = set([frozenset(asgn) for asgn in g.log_sat_asgn])
+        data = [[" ".join([str(x) for x in s])] for s in log_sat_asgn_set]
+        table =  wandb.Table(data=data, columns=['SAT Assignment'])
+        wandb.log({"sat_model": table})
+
+        asgn = data[0][0] # one sat assignment
+        asgn = list(map(int, asgn.split(" ")))
+        asgn_pos = [a for a in asgn if a > 0]
+        triu = [1 if i+1 in asgn_pos else 0 for i in range(g.edge_count)]
+        g.print_graph(g.triu2adj(triu))
+    
     # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
 
 if __name__ == "__main__":

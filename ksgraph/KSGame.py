@@ -5,22 +5,31 @@ from .KSLogic import Board, MAX_LITERALS, MAX_CLAUSE_EMBED
 import numpy as np
 from pysat.formula import CNF
 
+import networkx as nx
+import wandb
+import matplotlib.pyplot as plt
+
 class KSGame(Game):
     def __init__(self, filename="constraints_5"): 
         super(KSGame, self).__init__()
         self.cnf = CNF(from_file=filename)
-        order = int(filename.split("_")[-1])
-        print("Solving the KS system of order ", order, " with ", len(self.cnf.clauses), " constraints")
+        self.order = int(filename.split("_")[-1])
+        print("Solving the KS system of order ", self.order, " with ", len(self.cnf.clauses), " constraints")
+
+        self.log_sat_asgn = []
+        self.log_giveup_rew, self.log_giveup_rewA = [], []
+        self.log_eval_var, self.log_eval_varA = [], []
 
         self.edge_dict = {}
         # self.tri_dict = {}
         count = 0
-        for j in range(1, order+1):             #generating the edge variables
-            for i in range(1, order+1):
+        for j in range(1, self.order+1):             #generating the edge variables
+            for i in range(1, self.order+1):
                 if i < j:
                     count += 1
                     self.edge_dict[(i,j)] = count
 
+        self.edge_count = count
         assert MAX_LITERALS >= count # sanity check so that we can encode the edge variables in the action space
 
         # for a in range(1, order-1):             #generating the triangle variables
@@ -33,7 +42,7 @@ class KSGame(Game):
         return Board(cnf=self.cnf, edge_dict=self.edge_dict)
 
     def get_copy(self):
-        return copy.deepcopy(self)
+        return self # copy.deepcopy(self) # TODO: check if deepcopy is required
 
     def getInitBoard(self):
         bd = self._make_representation()
@@ -64,7 +73,7 @@ class KSGame(Game):
             valids[x]=1
         return np.array(valids)
 
-    def getGameEnded(self, board):
+    def getGameEnded(self, board: Board):
         """
         Input:
             board: current board
@@ -73,7 +82,26 @@ class KSGame(Game):
             r: 0 if game has not ended, reward otherwise. 
                
         """
-        return board.compute_reward() if board.is_done() else None
+        if board.is_done():
+            rew, solver_model = board.compute_reward()
+            assert rew is not None
+            if board.is_win(): # sat
+                assert solver_model is not None
+                self.log_sat_asgn.append(solver_model)
+            elif board.is_fail():
+                assert solver_model is None
+            elif board.is_giveup():
+                if board.arena_mode: # separate logging for arena mode
+                    self.log_giveup_rewA.append(rew)
+                    self.log_eval_varA.append(board.total_rew)
+                else:
+                    self.log_giveup_rew.append(rew)
+                    self.log_eval_var.append(board.total_rew)
+                if solver_model is not None: # sat determined by sat solver
+                    self.log_sat_asgn.append(solver_model) # already includes the prior actions (assumptions)
+            return rew
+        else:
+            return None
 
     def getCanonicalForm(self, board):
         """
@@ -125,3 +153,19 @@ class KSGame(Game):
                          Required by MCTS for hashing.
         """
         return ''.join(map(str, board.get_state_complete()))
+    
+    def triu2adj(self, board_triu): 
+        assert len(board_triu) == self.order*(self.order-1)//2
+        adj_matrix = np.zeros((self.order, self.order), dtype=int)
+        i = np.triu_indices(self.order, k=1) # k=1 to exclude the diagonal
+        col_wise_sort = i[1].argsort()
+        i_new = (i[0][col_wise_sort], i[1][col_wise_sort])
+        adj_matrix[i_new] = board_triu
+        return adj_matrix
+
+    def print_graph(self, adj_matrix):
+        G = nx.from_numpy_array(adj_matrix)
+        nx.draw(G, with_labels=True, labels={k:k+1 for k in range(self.order)})
+        plt.tight_layout()
+        plt.savefig("Graph.png", format="PNG")
+        wandb.log({"example sat": wandb.Image("Graph.png")})

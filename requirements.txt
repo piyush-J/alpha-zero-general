@@ -48,3 +48,4 @@ sympy
 python-sat[pblib,aiger]
 networkx
 wandb
+matplotlib
