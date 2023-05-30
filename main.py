@@ -30,13 +30,15 @@ args = dotdict({
     'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
     'numItersForTrainExamplesHistory': 20,
 
-    'CCenv': False,
+    'CCenv': True,
     'model_name': 'DNN',
     'model_notes': 'Basic DNN model during initial testing',
     'model_mode': 'mode-0',
     'phase': 'initial-testing',
 
-    'debugging': False,
+    'debugging': True,
+
+    'MCTSmode': 0, # mode 0 - executeEpisode, no learning, heuristic tree search
 })
 
 
@@ -58,7 +60,7 @@ def main():
     wandb.config.update(args)
 
     log.info(f'Loading {KSGame.__name__}...')
-    g = KSGame() 
+    g = KSGame(args) 
     log.info('Loading %s...', ksnn.__name__)
     nnet = ksnn(g)
 
@@ -76,6 +78,13 @@ def main():
         c.loadTrainExamples()
 
     log.info('Starting the learning process 🎉')
+
+    if args.MCTSmode == 0:
+        c.nolearnMCTS()
+        return
+
+    # else ---
+
     c.learn()
 
     data = [[x, y] for (x, y) in zip(g.log_giveup_rew, g.log_eval_var)]

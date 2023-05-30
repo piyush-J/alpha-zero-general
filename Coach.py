@@ -30,7 +30,7 @@ class Coach():
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
-    def DFSUtil(self, game, board, level, trainExamples):
+    def DFSUtil(self, game, board, level, trainExamples, all_cubes):
         # TODO: Incorporate canonicalBoard & symmetry appropriately when required in the future
         # canonicalBoard = game.getCanonicalForm(board)
         # sym = game.getSymmetries(canonicalBoard, pi)
@@ -41,6 +41,7 @@ class Coach():
 
         reward_now = game.getGameEnded(board)
         if reward_now: # reward is not None, i.e., game over
+            all_cubes.append(board.prior_actions)
             return reward_now # only leaves have rewards & leaves don't have neighbors
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
@@ -60,7 +61,7 @@ class Coach():
         assert valids[a] and valids[comp_a], "Invalid action chosen by MCTS"
 
         for game_n, neighbour in zip((game_copy_dir1, game_copy_dir2), (next_s_dir1, next_s_dir2)): 
-            reward_now += self.DFSUtil(game_n, neighbour, level+1, trainExamples)
+            reward_now += self.DFSUtil(game_n, neighbour, level+1, trainExamples, all_cubes)
         
         trainExamples.append([board.get_state(), pi, reward_now]) # after all children are visited, add a reward to the current node
         return reward_now # return the reward to the parent
@@ -78,11 +79,24 @@ class Coach():
                            the player eventually won the game, else -1.
         """
         trainExamples = []
+        all_cubes = []
         game = self.game.get_copy()
         board = game.getInitBoard()
 
-        self.DFSUtil(game, board, level=1, trainExamples=trainExamples)
+        self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
+        arena_cubes = [list(map(str, l)) for l in all_cubes]
+        if os.path.exists("arena_cubes.txt"):
+            log.info("arena_cubes.txt already exists. Replacing old file!")
+        f = open("arena_cubes.txt", "w")
+        f.writelines(["a " + " ".join(l) + " 0\n" for l in arena_cubes])
+        f.close()
+
+        log.info("Saved cubes to file")
         return trainExamples
+
+    def nolearnMCTS(self):
+        self.mcts = MCTS(self.nnet, self.args)  # reset search tree every episode
+        self.executeEpisode()
 
     def learn(self):
         """

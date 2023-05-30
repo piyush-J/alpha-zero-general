@@ -1,6 +1,7 @@
 import copy
 from Game import Game
 from .KSLogic import Board, MAX_LITERALS, MAX_CLAUSE_EMBED
+from .KSLogicMode0 import BoardMode0
 
 import numpy as np
 from pysat.formula import CNF
@@ -10,8 +11,9 @@ import wandb
 import matplotlib.pyplot as plt
 
 class KSGame(Game):
-    def __init__(self, filename="constraints_5"): 
+    def __init__(self, args, filename="constraints_5"): 
         super(KSGame, self).__init__()
+        self.args = args
         self.cnf = CNF(from_file=filename)
         self.order = int(filename.split("_")[-1])
         print("Solving the KS system of order ", self.order, " with ", len(self.cnf.clauses), " constraints")
@@ -39,6 +41,8 @@ class KSGame(Game):
         #             self.tri_dict[(a,b,c)] = count
 
     def _make_representation(self):
+        if self.args.MCTSmode == 0:
+            return BoardMode0(cnf=self.cnf, edge_dict=self.edge_dict)
         return Board(cnf=self.cnf, edge_dict=self.edge_dict)
 
     def get_copy(self):
@@ -51,13 +55,13 @@ class KSGame(Game):
     def getEmbedding(self, board):
         return board.get_state()
 
-    def getBoardSize(self):
+    def getBoardSize(self): # used by NN
         return MAX_CLAUSE_EMBED
 
-    def getActionSize(self):
+    def getActionSize(self): 
         return MAX_LITERALS*2 + 1 # [e.g., dummy_0, 1 to 10, -1 to -10]
     
-    def getNv(self):
+    def getNv(self): # no. of variables
         return self.cnf.nv
 
     def getNextState(self, board, action):
@@ -82,6 +86,9 @@ class KSGame(Game):
             r: 0 if game has not ended, reward otherwise. 
                
         """
+        if self.args.MCTSmode == 0:
+            return self.getGameEndedMode0(board)
+
         if board.is_done():
             rew, solver_model = board.compute_reward()
             assert rew is not None
@@ -100,6 +107,12 @@ class KSGame(Game):
                 if solver_model is not None: # sat determined by sat solver
                     self.log_sat_asgn.append(solver_model) # already includes the prior actions (assumptions)
             return rew
+        else:
+            return None
+        
+    def getGameEndedMode0(self, board):
+        if board.is_done():
+            return board.compute_reward()
         else:
             return None
 

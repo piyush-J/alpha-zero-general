@@ -101,7 +101,10 @@ class MCTS():
             # leaf node
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
-            self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
+            if self.args.MCTSmode == 0:
+                self.Ps[s], v = self.march_metric()
+            else:
+                self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
