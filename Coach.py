@@ -12,6 +12,8 @@ import wandb
 from Arena import PlanningArena
 from MCTS import MCTS
 
+import itertools
+
 log = logging.getLogger(__name__)
 
 
@@ -41,7 +43,8 @@ class Coach():
 
         reward_now = game.getGameEnded(board)
         if reward_now: # reward is not None, i.e., game over
-            all_cubes.append(board.prior_actions)
+            flattened_list = itertools.chain.from_iterable(board.prior_actions)
+            all_cubes.append(flattened_list)
             return reward_now # only leaves have rewards & leaves don't have neighbors
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
@@ -84,14 +87,16 @@ class Coach():
         board = game.getInitBoard()
 
         self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
-        arena_cubes = [list(map(str, l)) for l in all_cubes]
-        if os.path.exists("arena_cubes.txt"):
-            log.info("arena_cubes.txt already exists. Replacing old file!")
-        f = open("arena_cubes.txt", "w")
-        f.writelines(["a " + " ".join(l) + " 0\n" for l in arena_cubes])
-        f.close()
 
-        log.info("Saved cubes to file")
+        if self.args.MCTSmode == 0:
+            arena_cubes = [list(map(str, l)) for l in all_cubes]
+            if os.path.exists("arena_cubes.txt"):
+                log.info("arena_cubes.txt already exists. Replacing old file!")
+            f = open("arena_cubes.txt", "w")
+            f.writelines(["a " + " ".join(l) + " 0\n" for l in arena_cubes])
+            f.close()
+
+            log.info("Saved cubes to file")
         return trainExamples
 
     def nolearnMCTS(self):

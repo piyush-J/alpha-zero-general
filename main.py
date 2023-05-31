@@ -17,13 +17,13 @@ coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
 args = dotdict({
     'numIters': 1,           # TODO: Change this to 1000
-    'numEps': 3,              # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 10,        #
     'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
     'numMCTSSims': 5,          # Number of games moves for MCTS to simulate.
-    'arenaCompare': 3,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
-    'cpuct': 1,                 # controls the amount of exploration
+    'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
+    'cpuct': 3,                 # controls the amount of exploration; keeping high for MCTSmode 0
 
     'checkpoint': './temp/',
     'load_model': False,
@@ -38,7 +38,7 @@ args = dotdict({
 
     'debugging': True,
 
-    'MCTSmode': 0, # mode 0 - executeEpisode, no learning, heuristic tree search
+    'MCTSmode': 0, # mode 0 - executeEpisode, no learning, heuristic tree search, MCTS ignore direction;
 })
 
 
@@ -60,7 +60,7 @@ def main():
     wandb.config.update(args)
 
     log.info(f'Loading {KSGame.__name__}...')
-    g = KSGame(args) 
+    g = KSGame(args=args, filename="debug.cnf", order=17) 
     log.info('Loading %s...', ksnn.__name__)
     nnet = ksnn(g)
 

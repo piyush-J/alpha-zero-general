@@ -97,12 +97,12 @@ class MCTS():
                 log.info(f"Node is terminal node, reward is {rew}\n{s}")
             return rew
 
-        if s not in self.Ps: # STEP 3: ROLLOUT or SIMULATION (use NN to predcit the value, i.e., the end reward to be backpropagated)
+        if s not in self.Ps: # STEP 3: ROLLOUT or SIMULATION (for MCTSmode != 0, use NN to predcit the value, i.e., the end reward to be backpropagated)
             # leaf node
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
             if self.args.MCTSmode == 0:
-                self.Ps[s], v = self.march_metric()
+                self.Ps[s], v = canonicalBoard.prob, canonicalBoard.total_rew
             else:
                 self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
             valids = game.getValidMoves(canonicalBoard)

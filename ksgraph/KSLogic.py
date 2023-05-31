@@ -1,21 +1,22 @@
-import itertools
-import numpy as np
-from dataclasses import dataclass
-from abc import abstractmethod
-
 import copy
+import itertools
+from abc import abstractmethod
+from dataclasses import dataclass
 
+import numpy as np
 from pysat.solvers import Solver
+
 import wandb
 
-MAX_LITERALS = 10
+MAX_LITERALS = 136
 MAX_CLAUSE_EMBED = 500
-STEP_UPPER_BOUND = MAX_LITERALS//2
+STEP_UPPER_BOUND = 3 # MAX_LITERALS//2
 
 class Board:
 
     def __init__(self, cnf, edge_dict):
-        self.cnf_clauses = copy.deepcopy(cnf.clauses) # first call would have CNF object
+        self.cnf = copy.deepcopy(cnf)
+        # self.cnf_clauses = copy.deepcopy(cnf.clauses) # first call would have CNF object
         self.nlits = cnf.nv # number of variables in the CNF formula
         self.extra_lits = list(range(MAX_LITERALS+1, self.nlits+1, 1))+list(range(-MAX_LITERALS-1, -self.nlits-1, -1)) # extra lits not part of the action space
         self.edge_dict = edge_dict
@@ -69,7 +70,7 @@ class Board:
         return action_comp # returned action is a var
         
     def get_state(self):
-        clauses = copy.deepcopy(self.cnf_clauses)
+        clauses = copy.deepcopy(self.cnf.clauses)
         for i, c in enumerate(clauses):
             clauses[i].append(0) # add the clause separator
         
@@ -79,7 +80,7 @@ class Board:
         return np.array(clauses_padded) # literals are mapped to vars
 
     def get_state_complete(self): # no truncation or padding
-        clauses = copy.deepcopy(self.cnf_clauses)
+        clauses = copy.deepcopy(self.cnf.clauses)
         for i, c in enumerate(clauses):
             clauses[i].append(0) # add the clause separator
         
@@ -88,7 +89,7 @@ class Board:
         return np.array(clauses) # literals are mapped to vars
     
     def get_flattened_clause(self): # no mapping or truncation or padding
-        clauses = copy.deepcopy(self.cnf_clauses)
+        clauses = copy.deepcopy(self.cnf.clauses)
         for i, c in enumerate(clauses):
             clauses[i].append(0) # add the clause separator
         
@@ -108,7 +109,7 @@ class Board:
         chosen_literal = [new_state.var2lits[action]]
         new_state.prior_actions.append(new_state.var2lits[action])
         
-        with Solver(bootstrap_with=new_state.cnf_clauses) as solver:
+        with Solver(bootstrap_with=new_state.cnf.clauses) as solver:
             out = solver.propagate(assumptions=chosen_literal)
             assert out is not None
             not_unsat, asgn = out
@@ -119,15 +120,15 @@ class Board:
         if not not_unsat: # unsat
             new_state.res = 0
             self.counter_unsat += 1
-            new_state.cnf_clauses = [[]]
+            new_state.cnf.clauses = [[]]
             new_state.sat_or_unsat_leaf += 1
             self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
             self.sat_unsat_actions.add(action) # add the action to the list of actions (of the parent) that lead to a sat or unsat leaf
 
         else:
-            clauses_interm = [c for c in new_state.cnf_clauses if all(r not in c for r in chosen_literal)] # remove the clauses that contain the chosen literal
-            new_state.cnf_clauses = [[l for l in c if all(l!=-r for r in chosen_literal)] for c in clauses_interm] # remove the negation of chosen literal from the remaining clauses
-            if new_state.cnf_clauses == []: # sat
+            clauses_interm = [c for c in new_state.cnf.clauses if all(r not in c for r in chosen_literal)] # remove the clauses that contain the chosen literal
+            new_state.cnf.clauses = [[l for l in c if all(l!=-r for r in chosen_literal)] for c in clauses_interm] # remove the negation of chosen literal from the remaining clauses
+            if new_state.cnf.clauses == []: # sat
                 self.counter_sat += 1
                 new_state.res = 1
                 new_state.sat_or_unsat_leaf += 1
@@ -144,7 +145,7 @@ class Board:
                 return 1, None
             elif self.is_giveup(): # call the solver to get the result + also used by Arena
                 self.counter_giveup += 1
-                with Solver(bootstrap_with=self.cnf_clauses, use_timer=True) as solver:
+                with Solver(bootstrap_with=self.cnf.clauses, use_timer=True) as solver:
                     res = solver.solve(assumptions=self.prior_actions)
                     if res: 
                         solver_model = solver.get_model() # assumptions are included

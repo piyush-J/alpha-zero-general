@@ -10,12 +10,19 @@ import networkx as nx
 import wandb
 import matplotlib.pyplot as plt
 
+import hashlib
+
+def calculate_hash(string):
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(string.encode('utf-8'))
+    return sha256_hash.hexdigest()
+
 class KSGame(Game):
-    def __init__(self, args, filename="constraints_5"): 
+    def __init__(self, args, filename, order): 
         super(KSGame, self).__init__()
         self.args = args
         self.cnf = CNF(from_file=filename)
-        self.order = int(filename.split("_")[-1])
+        self.order = order
         print("Solving the KS system of order ", self.order, " with ", len(self.cnf.clauses), " constraints")
 
         self.log_sat_asgn = []
@@ -42,7 +49,9 @@ class KSGame(Game):
 
     def _make_representation(self):
         if self.args.MCTSmode == 0:
-            return BoardMode0(cnf=self.cnf, edge_dict=self.edge_dict)
+            board = BoardMode0(cnf=self.cnf, edge_dict=self.edge_dict, order=self.order)
+            board.calculate_march_metrics() # initialize the valid literals, prob, and march_var_score_dict
+            return board
         return Board(cnf=self.cnf, edge_dict=self.edge_dict)
 
     def get_copy(self):
@@ -165,7 +174,7 @@ class KSGame(Game):
             boardString: a quick conversion of board to a string format.
                          Required by MCTS for hashing.
         """
-        return ''.join(map(str, board.get_state_complete()))
+        return calculate_hash(''.join(map(str, board.get_state_complete())))
     
     def triu2adj(self, board_triu): 
         assert len(board_triu) == self.order*(self.order-1)//2
