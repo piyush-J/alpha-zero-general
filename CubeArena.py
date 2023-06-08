@@ -1,5 +1,6 @@
 import itertools
 import logging
+import coloredlogs
 
 from tqdm import tqdm
 import numpy as np
@@ -7,12 +8,15 @@ import wandb
 
 import networkx as nx
 import matplotlib.pyplot as plt
+from ksgraph.KSGame import KSGame
 import pydot
 from networkx.drawing.nx_pydot import graphviz_layout
 
 from Arena import calcAndLogMetrics
+from utils import dotdict
 
 log = logging.getLogger(__name__)
+coloredlogs.install(level='INFO')
 
 class GraphVisualization:
   def __init__(self, edge_labels):
@@ -153,7 +157,7 @@ class CubeArena():
         # visited.add(v) # no need if we are using a tree
 
         for literal in cubes:
-            action = board.lits2var[literal]
+            action = board.lits2var[int(literal)]
             
             # verify that the action is valid in the current board and the game is not over
             valids = game.getValidMoves(board)
@@ -165,11 +169,12 @@ class CubeArena():
             board = game_copy.getNextState(board, action)
 
         # now the game should be over
-        reward_now = game.getGameEnded(board)
+        reward_now = game.getGameEnded(board, eval_cls=True)
         assert reward_now is not None, "Invalid board state: Game is not over"
 
-        if board.is_giveup():
-            solver_time.append(-reward_now*10) # reward to time in seconds
+        # if board.is_giveup():
+        solver_time.append(reward_now) 
+        
         return reward_now     
 
     def playGame(self, list_of_cubes):
@@ -185,9 +190,11 @@ class CubeArena():
             board = game.getInitBoard()
             rew += self.simulatePath(game, board, cubes, solver_time)
 
-        calcAndLogMetrics(0, [[solver_time]], "CubeAgent", newagent=False)
+        calcAndLogMetrics(0, np.array([[solver_time]]), "CubeAgent", newagent=False)
 
-        log.info("Cube Agent Reward: {}".format(rew))
+        assert len(solver_time) == len(list_of_cubes), f"Number of cubes ({len(list_of_cubes)}) and solver time ({len(solver_time)}) don't match"
+
+        log.info(f"Cube Agent Total Reward: {rew} for {len(list_of_cubes)} cubes")
 
     def runSimulation(self): # main method
         list_of_cubes = self.parseCubeFile()
@@ -195,3 +202,40 @@ class CubeArena():
         self.visualizeCube()
         self.playGame(list_of_cubes)
 
+if __name__ == '__main__':
+    args = dotdict({
+        'numIters': 1,           # TODO: Change this to 1000
+        'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
+        'tempThreshold': 10,        #
+        'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
+        'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
+        'numMCTSSims': 50,          # Number of games moves for MCTS to simulate.
+        'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
+        'cpuct': 1,                 # controls the amount of exploration; keeping high for MCTSmode 0
+
+        'checkpoint': './temp/',
+        'load_model': False,
+        'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
+        'numItersForTrainExamplesHistory': 20,
+
+        'CCenv': True,
+        'model_name': 'MCTS',
+        'model_notes': 'MCTS without NN',
+        'model_mode': 'mode-0',
+        'phase': 'initial-testing',
+
+        'debugging': False,
+
+        'MCTSmode': 0, # mode 0 - executeEpisode, no learning, heuristic tree search, MCTS ignore direction;
+
+        'order': 4, # 17,
+        'MAX_LITERALS': 6, # 17*16//2,
+        'STATE_SIZE': 10,
+        'STEP_UPPER_BOUND': 4, # 10, # max depth of CnC
+    })
+
+    wandb.init(mode="disabled")
+
+    game = KSGame(args=args, filename="cnc.cnf") 
+
+    CubeArena(agent1=None, game=game, cubefile='random_cubes.txt').runSimulation()
