@@ -8,17 +8,14 @@ from pysat.solvers import Solver
 
 import wandb
 
-MAX_LITERALS = 136
-MAX_CLAUSE_EMBED = 500
-STEP_UPPER_BOUND = 3 # MAX_LITERALS//2
-
 class Board:
 
-    def __init__(self, cnf, edge_dict):
+    def __init__(self, args, cnf, edge_dict):
+        self.args = args
+        self.cnf_clauses_org = copy.deepcopy(cnf.clauses)
         self.cnf = copy.deepcopy(cnf)
-        # self.cnf_clauses = copy.deepcopy(cnf.clauses) # first call would have CNF object
         self.nlits = cnf.nv # number of variables in the CNF formula
-        self.extra_lits = list(range(MAX_LITERALS+1, self.nlits+1, 1))+list(range(-MAX_LITERALS-1, -self.nlits-1, -1)) # extra lits not part of the action space
+        self.extra_lits = list(range(self.args.MAX_LITERALS+1, self.nlits+1, 1))+list(range(-self.args.MAX_LITERALS-1, -self.nlits-1, -1)) # extra lits not part of the action space
         self.edge_dict = edge_dict
 
         self.arena_mode = 0 # 0: normal mode, 1: arena mode
@@ -33,10 +30,10 @@ class Board:
         self.counter_unsat = 0
         self.counter_giveup = 0
 
-        literals_pos = list(range(1,MAX_LITERALS+1))
+        literals_pos = list(range(1,self.args.MAX_LITERALS+1))
         literals_neg = [-l for l in literals_pos]
         literals_all = literals_pos + literals_neg
-        vars_all = [MAX_LITERALS + (-c) if c<0 else c for c in literals_all]
+        vars_all = [self.args.MAX_LITERALS + (-c) if c<0 else c for c in literals_all]
         self.lits2var = dict(zip(literals_all, vars_all))
         self.var2lits = dict(zip(vars_all, literals_all))
 
@@ -44,7 +41,7 @@ class Board:
         return f"Board: {self.get_flattened_clause()}, nlits: {self.nlits}, res: {self.res}, step: {self.step}, total_rew: {self.total_rew}, sat_or_unsat_leaf: {self.sat_or_unsat_leaf}, prior_actions: {self.prior_actions}, sat_unsat_actions: {self.sat_unsat_actions}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.step > STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
+        return self.res is None and (self.step > self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def is_win(self):
         return self.res == 1
@@ -70,13 +67,20 @@ class Board:
         return action_comp # returned action is a var
         
     def get_state(self):
+        prior_actions = list(itertools.chain.from_iterable(self.prior_actions)) # flatten the list
+        prior_actions = [self.lits2var[i] for i in prior_actions] # treat the negative literals as a new literal (for convenient MCTS action space)
+        # pre-padding to keep the last self.args.STATE_SIZE actions with the most recent one always at the end
+        prior_actions_padded = [0]*(self.args.STATE_SIZE-len(prior_actions)) + prior_actions[-self.args.STATE_SIZE:] # pad the list with 0s
+        return np.array(prior_actions_padded) # literals are mapped to vars
+    
+    def get_state_clause(self):
         clauses = copy.deepcopy(self.cnf.clauses)
         for i, c in enumerate(clauses):
             clauses[i].append(0) # add the clause separator
         
         clauses = list(itertools.chain.from_iterable(clauses)) # flatten the list
         clauses = [self.nlits + (-c) if c<0 else c for c in clauses] # treat the negative literals as a new literal (for convenient MCTS action space)
-        clauses_padded = clauses[:MAX_CLAUSE_EMBED] + [0]*(MAX_CLAUSE_EMBED-len(clauses)) # pad the list with 0s
+        clauses_padded = clauses[:self.args.STATE_SIZE] + [0]*(self.args.STATE_SIZE-len(clauses)) # pad the list with 0s
         return np.array(clauses_padded) # literals are mapped to vars
 
     def get_state_complete(self): # no truncation or padding
@@ -119,9 +123,9 @@ class Board:
 
         if not not_unsat: # unsat
             new_state.res = 0
-            self.counter_unsat += 1
             new_state.cnf.clauses = [[]]
             new_state.sat_or_unsat_leaf += 1
+            self.counter_unsat += 1
             self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
             self.sat_unsat_actions.add(action) # add the action to the list of actions (of the parent) that lead to a sat or unsat leaf
 
@@ -129,9 +133,9 @@ class Board:
             clauses_interm = [c for c in new_state.cnf.clauses if all(r not in c for r in chosen_literal)] # remove the clauses that contain the chosen literal
             new_state.cnf.clauses = [[l for l in c if all(l!=-r for r in chosen_literal)] for c in clauses_interm] # remove the negation of chosen literal from the remaining clauses
             if new_state.cnf.clauses == []: # sat
-                self.counter_sat += 1
                 new_state.res = 1
                 new_state.sat_or_unsat_leaf += 1
+                self.counter_sat += 1
                 self.sat_or_unsat_leaf += 1 # update the parent too, so that you can propagate to the cutoff leaf
                 self.sat_unsat_actions.add(action) # add the action to the list of actions (of the parent) that lead to a sat or unsat leaf
 

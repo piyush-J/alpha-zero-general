@@ -1,6 +1,6 @@
 import copy
 from Game import Game
-from .KSLogic import Board, MAX_LITERALS, MAX_CLAUSE_EMBED
+from .KSLogic import Board
 from .KSLogicMode0 import BoardMode0
 
 import numpy as np
@@ -18,11 +18,13 @@ def calculate_hash(string):
     return sha256_hash.hexdigest()
 
 class KSGame(Game):
-    def __init__(self, args, filename, order): 
+    def __init__(self, args, filename): 
         super(KSGame, self).__init__()
         self.args = args
         self.cnf = CNF(from_file=filename)
-        self.order = order
+        self.order = args.order
+        self.MAX_LITERALS = args.MAX_LITERALS
+        self.STATE_SIZE = args.STATE_SIZE
         print("Solving the KS system of order ", self.order, " with ", len(self.cnf.clauses), " constraints")
 
         self.log_sat_asgn = []
@@ -39,7 +41,7 @@ class KSGame(Game):
                     self.edge_dict[(i,j)] = count
 
         self.edge_count = count
-        assert MAX_LITERALS >= count # sanity check so that we can encode the edge variables in the action space
+        assert self.MAX_LITERALS >= count # sanity check so that we can encode the edge variables in the action space
 
         # for a in range(1, order-1):             #generating the triangle variables
         #     for b in range(a+1, order):
@@ -49,10 +51,10 @@ class KSGame(Game):
 
     def _make_representation(self):
         if self.args.MCTSmode == 0:
-            board = BoardMode0(cnf=self.cnf, edge_dict=self.edge_dict, order=self.order)
+            board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict)
             board.calculate_march_metrics() # initialize the valid literals, prob, and march_var_score_dict
             return board
-        return Board(cnf=self.cnf, edge_dict=self.edge_dict)
+        return Board(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict)
 
     def get_copy(self):
         return self # copy.deepcopy(self) # TODO: check if deepcopy is required
@@ -65,10 +67,10 @@ class KSGame(Game):
         return board.get_state()
 
     def getBoardSize(self): # used by NN
-        return MAX_CLAUSE_EMBED
+        return self.STATE_SIZE
 
     def getActionSize(self): 
-        return MAX_LITERALS*2 + 1 # [e.g., dummy_0, 1 to 10, -1 to -10]
+        return int(self.MAX_LITERALS*2 + 1) # [e.g., dummy_0, 1 to 10, -1 to -10]
     
     def getNv(self): # no. of variables
         return self.cnf.nv
@@ -86,7 +88,7 @@ class KSGame(Game):
             valids[x]=1
         return np.array(valids)
 
-    def getGameEnded(self, board: Board):
+    def getGameEnded(self, board: Board, eval_cls=False):
         """
         Input:
             board: current board
@@ -96,7 +98,7 @@ class KSGame(Game):
                
         """
         if self.args.MCTSmode == 0:
-            return self.getGameEndedMode0(board)
+            return self.getGameEndedMode0(board, eval_cls)
 
         if board.is_done():
             rew, solver_model = board.compute_reward()
@@ -119,9 +121,9 @@ class KSGame(Game):
         else:
             return None
         
-    def getGameEndedMode0(self, board):
+    def getGameEndedMode0(self, board, eval_cls):
         if board.is_done():
-            return board.compute_reward()
+            return board.compute_reward(eval_cls)
         else:
             return None
 

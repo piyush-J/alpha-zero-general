@@ -1,5 +1,6 @@
 import copy
 import itertools
+import logging
 import re
 import subprocess
 from abc import abstractmethod
@@ -10,21 +11,23 @@ from pysat.solvers import Solver
 
 import wandb
 
-from .KSLogic import MAX_CLAUSE_EMBED, MAX_LITERALS, STEP_UPPER_BOUND, Board
+from .KSLogic import Board
 
+log = logging.getLogger(__name__)
 
 class BoardMode0(Board):
 
-    def __init__(self, cnf, edge_dict, order):
-        Board.__init__(self, cnf, edge_dict)
-        self.order = order
+    def __init__(self, args, cnf, edge_dict):
+        Board.__init__(self, args, cnf, edge_dict)
+        self.order = args.order
         self.valid_literals = None
         self.prob = None
         self.march_pos_lit_score_dict = None
         self.current_metric_val = None
+        self.max_metric_val = None
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.step > STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
+        return self.res is None and (self.step > self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def calculate_march_metrics(self):
         # TODO: file saving might cause issue with code parallelization
@@ -32,38 +35,69 @@ class BoardMode0(Board):
         self.cnf.to_file(filename)
         edge_vars = self.order*(self.order-1)//2 
 
+        if len(self.prior_actions) > 0:
+            assert self.cnf_clauses_org + self.prior_actions == self.cnf.clauses # sanity check
+
+        # ../PhysicsCheck/gen_cubes/march_cu/march_cu tmp.cnf -o tmp.cubes -d 1 -m 136
         result = subprocess.run(['../PhysicsCheck/gen_cubes/march_cu/march_cu', 
                                 filename,
                                 '-o',
-                                'mcts_logs/tmp.cubes', 
+                                'tmp.cubes', 
                                 '-d', '1', '-m', str(edge_vars)], capture_output=True, text=True)
         output = result.stdout
 
         # two groups enclosed in separate ( and ) bracket
         march_pos_lit_score_dict = dict(re.findall(r"alphasat: variable (\d+) with score (\d+)", output))
-        march_pos_lit_score_dict = {int(k):int(v) for k,v in march_pos_lit_score_dict.items()}
+        march_pos_lit_score_dict = {int(k):float(v) for k,v in march_pos_lit_score_dict.items()}
 
-        # [best literal with sign, node, diff of the selected literal]
-        try:
-            march_var_node_score_list = list(map(int, re.findall(r"selected (-?\d+) at (\d+) with diff (\d+)", output)[0]))
-        except IndexError:
-            print("No literals to choose from!")
-            print(output)
-            exit(0)
+        if len(march_pos_lit_score_dict) == 0:
+            unsat_check = re.findall(r"c number of cubes (\d+), including (\d+) refuted leaf", output)
+            if len(unsat_check) > 0 and unsat_check[0][0] == unsat_check[0][1] in output:
+                assert len(unsat_check) == 1
+                self.res = 0
+            elif "SATISFIABLE" in output:
+                self.res = 1
+            else:
+                print("Unknown result with empty dict!")
+                print(output)
+                exit(0)
+        else:
+            # [best literal with sign, node, diff of the selected literal]
+            try:
+                march_var_node_score_list = list(map(int, re.findall(r"selected (-?\d+) at (\d+) with diff (\d+)", output)[0]))
+                if self.max_metric_val is None and march_var_node_score_list[2] > 0:
+                    self.max_metric_val = march_var_node_score_list[2]
+            except IndexError:
+                print("No literals to choose from!")
+                print(output)
+                exit(0)
 
         valid_pos_literals = list(march_pos_lit_score_dict.keys())
         valid_neg_literals = [-l for l in valid_pos_literals]
 
-        prob = [0 for _ in range(edge_vars*2+1)]
+        prob = [0.0 for _ in range(edge_vars*2+1)]
         for l in valid_pos_literals:
             prob[l] = march_pos_lit_score_dict[l]
-            prob[-l] = march_pos_lit_score_dict[l]
+            prob[self.lits2var[-l]] = march_pos_lit_score_dict[l]
         
         try:
             prob = [p/sum(prob) for p in prob] # only for +ve literals
         except ZeroDivisionError:
             # uniform distribution
             prob = [1/(edge_vars*2) for _ in range(edge_vars*2+1)]
+
+        # normalize the values of the march_pos_lit_score_dict
+        if self.max_metric_val is not None: # it would be None if it the max was 0
+            for k in march_pos_lit_score_dict.keys():
+                march_pos_lit_score_dict[k] /= self.max_metric_val
+
+        max_val = max(march_pos_lit_score_dict.values()) if len(march_pos_lit_score_dict) > 0 else 0
+        if max_val > 1:
+            # log.info(f"max_val > 1: {max_val}")
+            wandb.log({"depth": len(self.prior_actions), "max_val": max_val})
+        elif max_val == 0:
+            # log.info(f"max_val == 0: {max_val}")
+            wandb.log({"depth": len(self.prior_actions), "max_val": max_val})
 
         self.valid_literals = valid_pos_literals + valid_neg_literals # both +ve and -ve literals
         self.prob = prob
@@ -94,12 +128,16 @@ class BoardMode0(Board):
         new_state.calculate_march_metrics()
         return new_state
 
-    def compute_reward(self):
+    def compute_reward(self, eval_cls=False):
         if self.is_done():
-            if self.is_win():
-                raise ValueError("self.res incorrectly set to 1")
+            if eval_cls:
+                if self.max_metric_val is None:
+                    return self.total_rew
+                return self.total_rew * self.max_metric_val
+            elif self.is_win():
+                return self.total_rew + self.args.STEP_UPPER_BOUND
             elif self.is_fail():
-                raise ValueError("self.res incorrectly set to 0")
+                return self.total_rew + self.args.STEP_UPPER_BOUND
             elif self.is_giveup(): 
                 return self.total_rew
             else:

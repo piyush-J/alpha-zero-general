@@ -2,6 +2,7 @@ import logging
 import math
 
 import numpy as np
+import wandb
 
 EPS = 1e-8
 
@@ -24,6 +25,8 @@ class MCTS():
 
         self.Es = {}  # stores game.getGameEnded ended for board s
         # self.Vs = {}  # stores game.getValidMoves for board s - dynamic because of sat_unsat_actions
+
+        self.data = []
 
     def getActionProb(self, game, board, temp=1, verbose=False):
         """
@@ -52,6 +55,11 @@ class MCTS():
         counts = [x ** (1. / temp) for x in counts]
         counts_sum = float(sum(counts))
         probs = [x / counts_sum for x in counts]
+
+        print("WANDB LOGGING: Size of self.data = ", len(self.data))
+        table = wandb.Table(data=self.data, columns = ["value", "depth"])
+        wandb.log({"MCTS value vs tree depth" : wandb.plot.scatter(table,
+                                    "value", "depth")})
         return probs
 
     def search(self, game, canonicalBoard, verbose=False, level=0):
@@ -102,12 +110,18 @@ class MCTS():
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
             if self.args.MCTSmode == 0:
-                self.Ps[s], v = canonicalBoard.prob, canonicalBoard.total_rew
+                self.Ps[s], total_rew = canonicalBoard.prob, canonicalBoard.total_rew
+                if len(canonicalBoard.prior_actions) > 0:
+                    avg_rew = total_rew/(len(canonicalBoard.prior_actions)) # average reward
+                else:
+                    avg_rew = total_rew # no prior actions - first step (0 expected reward) - init state of chessboard
+                v = avg_rew # *self.args.STEP_UPPER_BOUND # approximate the reward for the remaining steps
             else:
                 self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
             valids = game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
+            assert abs(sum_Ps_s - sum(canonicalBoard.prob)) < 0.1, f"sum_Ps_s = {sum_Ps_s}, sum(canonicalBoard.prob) = {sum(canonicalBoard.prob)}"
             if sum_Ps_s > 0:
                 self.Ps[s] /= sum_Ps_s  # renormalize
             else:
@@ -154,6 +168,8 @@ class MCTS():
         v1 = self.search(game_copy_dir1, next_s_dir1, level=level+1)
         v2 = self.search(game_copy_dir2, next_s_dir2, level=level+1)
         v = v1 + v2
+
+        self.data.append([v, level])
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
