@@ -144,3 +144,36 @@ class BoardMode0(Board):
                 raise Exception("Unknown game state")
         else:
             return None
+
+    @DeprecationWarning
+    def eval_var(self): # slow
+        march_pos_lit_score_dict = {}
+        
+        for chosen_literal in list(set(self.get_flattened_clause()) - set([0]+self.extra_lits)):
+            print(chosen_literal)
+            chosen_literal = int(chosen_literal)
+            if abs(chosen_literal) in march_pos_lit_score_dict:
+                continue
+
+            with Solver(bootstrap_with=self.cnf.clauses) as solver:
+                out = solver.propagate(assumptions=[chosen_literal])
+                assert out is not None
+                not_unsat, asgn = out
+
+                if not not_unsat: # unsat
+                    rew1 = 0
+                else:
+                    rew1 = len(asgn)
+
+                out = solver.propagate(assumptions=[-chosen_literal])
+                assert out is not None
+                not_unsat, asgn = out
+
+                if not not_unsat: # unsat
+                    rew2 = 0
+                else:
+                    rew2 = len(asgn)
+
+                if not (rew1 == 0 and rew2 == 0):
+                    # one of them is not unsat
+                    march_pos_lit_score_dict[abs(chosen_literal)] = rew1 + rew2

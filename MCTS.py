@@ -14,8 +14,9 @@ class MCTS():
     This class handles the MCTS tree.
     """
 
-    def __init__(self, nnet, args):
+    def __init__(self, nnet, args, all_logging_data, nn_iteration):
         # self.game = game.get_copy()
+        self.nn_iteration = nn_iteration
         self.nnet = nnet
         self.args = args
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
@@ -27,6 +28,7 @@ class MCTS():
         # self.Vs = {}  # stores game.getValidMoves for board s - dynamic because of sat_unsat_actions
 
         self.data = []
+        self.all_logging_data = all_logging_data
 
     def getActionProb(self, game, board, temp=1, verbose=False):
         """
@@ -56,10 +58,15 @@ class MCTS():
         counts_sum = float(sum(counts))
         probs = [x / counts_sum for x in counts]
 
-        print("WANDB LOGGING: Size of self.data = ", len(self.data))
-        table = wandb.Table(data=self.data, columns = ["value", "depth"])
+        self.all_logging_data += self.data
+        log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(self.all_logging_data)}")
+        table = wandb.Table(data=self.all_logging_data, columns = ["level", "Qsa", "best_u", "v"])
+        wandb.log({"MCTS Qsa vs tree depth" : wandb.plot.scatter(table,
+                                    "level", "Qsa")})
+        wandb.log({"MCTS best_u vs tree depth" : wandb.plot.scatter(table,
+                                    "level", "best_u")})
         wandb.log({"MCTS value vs tree depth" : wandb.plot.scatter(table,
-                                    "value", "depth")})
+                                    "level", "v")})
         return probs
 
     def search(self, game, canonicalBoard, verbose=False, level=0):
@@ -109,10 +116,11 @@ class MCTS():
             # leaf node
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
-            if self.args.MCTSmode == 0:
+            if self.args.MCTSmode == 0 and self.nn_iteration < self.args.nn_iter_threshold:
+                log.info("Using heuristic tree search without NN")
                 self.Ps[s], total_rew = canonicalBoard.prob, canonicalBoard.total_rew
                 if len(canonicalBoard.prior_actions) > 0:
-                    avg_rew = total_rew/(len(canonicalBoard.prior_actions)) # average reward
+                    avg_rew = total_rew/(len(canonicalBoard.prior_actions)) # average reward, not doing +1 in denominator because the first step's total_rew is 0
                 else:
                     avg_rew = total_rew # no prior actions - first step (0 expected reward) - init state of chessboard
                 v = avg_rew # *self.args.STEP_UPPER_BOUND # approximate the reward for the remaining steps
@@ -167,9 +175,7 @@ class MCTS():
 
         v1 = self.search(game_copy_dir1, next_s_dir1, level=level+1)
         v2 = self.search(game_copy_dir2, next_s_dir2, level=level+1)
-        v = v1 + v2
-
-        self.data.append([v, level])
+        v = (v1 + v2)/2 # average reward of the two children
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
@@ -178,6 +184,8 @@ class MCTS():
         else:
             self.Qsa[(s, a)] = v
             self.Nsa[(s, a)] = 1
+
+        self.data.append([level, self.Qsa[s,a], cur_best, v])
 
         self.Ns[s] += 1
         return v

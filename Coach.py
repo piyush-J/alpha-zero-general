@@ -4,6 +4,7 @@ import sys
 from collections import deque
 from pickle import Pickler, Unpickler
 from random import shuffle
+from matplotlib import pyplot as plt
 
 import numpy as np
 from tqdm import tqdm
@@ -28,7 +29,9 @@ class Coach():
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
-        self.mcts = MCTS(self.nnet, self.args)
+        self.all_logging_data = []
+        self.nn_iteration = None
+        self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
@@ -65,6 +68,7 @@ class Coach():
 
         for game_n, neighbour in zip((game_copy_dir1, game_copy_dir2), (next_s_dir1, next_s_dir2)): 
             reward_now += self.DFSUtil(game_n, neighbour, level+1, trainExamples, all_cubes)
+        reward_now = reward_now/2 # average reward of the two children
         
         trainExamples.append([board.get_state(), pi, reward_now]) # after all children are visited, add a reward to the current node
         return reward_now # return the reward to the parent
@@ -100,7 +104,7 @@ class Coach():
         return trainExamples
 
     def nolearnMCTS(self):
-        self.mcts = MCTS(self.nnet, self.args)  # reset search tree every episode
+        self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)  # reset search tree every episode
         self.executeEpisode()
 
     def learn(self):
@@ -115,13 +119,14 @@ class Coach():
         for i in range(1, self.args.numIters + 1):
             # bookkeeping
             log.info(f'Starting Iter #{i} ...')
+            self.NN_iteration = i
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
                 for _ in tqdm(range(self.args.numEps), desc="Self Play"):
                     # TODO: can be parallelized
-                    self.mcts = MCTS(self.nnet, self.args)  # reset search tree every episode
+                    self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)  # reset search tree every episode
                     iterationTrainExamples += self.executeEpisode()
 
                 # save the iteration examples to the history 
@@ -140,10 +145,10 @@ class Coach():
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.pnet, self.args)
+            pmcts = MCTS(self.pnet, self.args, self.all_logging_data, self.nn_iteration)
 
             self.nnet.train(trainExamples)
-            nmcts = MCTS(self.nnet, self.args)
+            nmcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
             random_action_agent = lambda game, board: np.random.choice([board.lits2var[l] for l in board.get_legal_literals()])
@@ -166,8 +171,13 @@ class Coach():
 
         iterationExamples = self.trainExamplesHistory[-1]
         rew = [e[2] for e in iterationExamples]
+        
         # mean, min, std and max of the rewards
         log.info(f"REWARDS - Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
+        plt.boxplot(rew)
+        plt.savefig("boxplot_rew.png")
+        wandb.log({"Rewards (train set)": wandb.Image("boxplot_rew.png")})
+
         perc = np.percentile(rew, 90)
         log.info(f"Percentile is {perc}")
         wandb.log({"mean_reward_tr": np.mean(rew), "std_reward_tr": np.std(rew), "min_reward_tr": np.min(rew), "max_reward_tr": np.max(rew), "percentile_tr": perc, "iteration": iteration})

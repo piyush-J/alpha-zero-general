@@ -90,6 +90,7 @@ class PlanningArena():
 
         for game_n, neighbour in zip((game_copy_dir1, game_copy_dir2), (next_s_dir1, next_s_dir2)): 
             reward_now += self.DFSUtil(game_n, neighbour, level+1, agent, solver_time, all_cubes)
+        reward_now = reward_now/2 # average reward of the two children
         
         return reward_now # return the reward to the parent
 

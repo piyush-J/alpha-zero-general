@@ -1,6 +1,7 @@
 import logging
 
 import coloredlogs
+from matplotlib import pyplot as plt
 
 from Coach import Coach
 
@@ -39,6 +40,7 @@ args = dotdict({
     'debugging': True,
 
     'MCTSmode': 0, # mode 0 - executeEpisode, no learning, heuristic tree search, MCTS ignore direction;
+    'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
 
     'order': 17,
     'MAX_LITERALS': 17*16//2,
@@ -104,13 +106,20 @@ def main():
     
     # data = [[s] for s in g.log_giveup_rewA]
     # table = wandb.Table(data=data, columns=["solver_reward"])
-    wandb.log({'Solver rewards (Arena)': wandb.plot.histogram(table, "solver_reward (A)",
-                            title="Histogram")})
+    fig = plt.figure(figsize =(10, 7))
+    plt.boxplot(g.log_giveup_rewA)
+    plt.savefig("boxplot1.png")
+    wandb.log({"Solver rewards (Arena)": wandb.Image("boxplot1.png")})
+    # wandb.log({'Solver rewards (Arena)': wandb.plot.histogram(table, "solver_reward (A)",
+    #                         title="Histogram")})
     
     # data = [[s] for s in g.log_eval_varA]
     # table = wandb.Table(data=data, columns=["eval_var"])
-    wandb.log({'Eval Var (Arena)': wandb.plot.histogram(table, "eval_var (A)",
-                            title="Histogram")})
+    plt.boxplot(g.log_eval_varA)
+    plt.savefig("boxplot2.png")
+    wandb.log({"Eval Var (Arena)": wandb.Image("boxplot2.png")})
+    # wandb.log({'Eval Var (Arena)': wandb.plot.histogram(table, "eval_var (A)",
+    #                         title="Histogram")})
     
     if len(g.log_sat_asgn) > 0:
         log_sat_asgn_set = set([frozenset(asgn) for asgn in g.log_sat_asgn])
