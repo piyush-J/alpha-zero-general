@@ -1,6 +1,7 @@
 import copy
 import itertools
 import logging
+import operator
 import re
 import subprocess
 from abc import abstractmethod
@@ -24,7 +25,7 @@ class BoardMode0(Board):
         self.prob = None
         self.march_pos_lit_score_dict = None
         self.current_metric_val = None
-        self.max_metric_val = None
+        self.max_metric_val = len(edge_dict) # maximum possible value of the metric (unweighted)
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
         return self.res is None and (self.step > self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
@@ -47,8 +48,12 @@ class BoardMode0(Board):
         output = result.stdout
 
         # two groups enclosed in separate ( and ) bracket
-        march_pos_lit_score_dict = dict(re.findall(r"alphasat: variable (\d+) with score (\d+)", output))
-        march_pos_lit_score_dict = {int(k):float(v) for k,v in march_pos_lit_score_dict.items()}
+        # this score considers the product of the two sides which can create problem (Refer Debugging Notes #7)
+        # march_pos_lit_score_dict = dict(re.findall(r"alphasat: variable (\d+) with score (\d+)", output))
+        # march_pos_lit_score_dict = {int(k):float(v) for k,v in march_pos_lit_score_dict.items()}
+
+        re_out = re.findall(r"alphasat: variable: (\d+), w-left: (\d+.\d+), w-right: (\d+.\d+)", output)
+        march_pos_lit_score_dict = {int(k):(float(v)+float(w))/2.0 for k,v,w in re_out} # average of the two sides
 
         if len(march_pos_lit_score_dict) == 0:
             unsat_check = re.findall(r"c number of cubes (\d+), including (\d+) refuted leaf", output)
@@ -57,18 +62,12 @@ class BoardMode0(Board):
                 self.res = 0
             elif "SATISFIABLE" in output:
                 self.res = 1
+                print("Found SAT!")
+                print(output)
+                print("Exiting...")
+                exit(0)
             else:
                 print("Unknown result with empty dict!")
-                print(output)
-                exit(0)
-        else:
-            # [best literal with sign, node, diff of the selected literal]
-            try:
-                march_var_node_score_list = list(map(int, re.findall(r"selected (-?\d+) at (\d+) with diff (\d+)", output)[0]))
-                if self.max_metric_val is None and march_var_node_score_list[2] > 0:
-                    self.max_metric_val = march_var_node_score_list[2]
-            except IndexError:
-                print("No literals to choose from!")
                 print(output)
                 exit(0)
 
@@ -87,9 +86,8 @@ class BoardMode0(Board):
             prob = [1/(edge_vars*2) for _ in range(edge_vars*2+1)]
 
         # normalize the values of the march_pos_lit_score_dict
-        if self.max_metric_val is not None: # it would be None if it the max was 0
-            for k in march_pos_lit_score_dict.keys():
-                march_pos_lit_score_dict[k] /= self.max_metric_val
+        for k in march_pos_lit_score_dict.keys():
+            march_pos_lit_score_dict[k] /= self.max_metric_val
 
         max_val = max(march_pos_lit_score_dict.values()) if len(march_pos_lit_score_dict) > 0 else 0
         if max_val > 1:
@@ -131,13 +129,15 @@ class BoardMode0(Board):
     def compute_reward(self, eval_cls=False):
         if self.is_done():
             if eval_cls:
-                if self.max_metric_val is None:
-                    return self.total_rew
-                return self.total_rew * self.max_metric_val
+                return self.total_rew
             elif self.is_win():
-                return self.total_rew + self.args.STEP_UPPER_BOUND
+                print("Found SAT!")
+                print(self.prior_actions)
+                print("Exiting...")
+                exit(0)
+                # return self.total_rew + self.args.STEP_UPPER_BOUND
             elif self.is_fail():
-                return self.total_rew + self.args.STEP_UPPER_BOUND
+                return 1
             elif self.is_giveup(): 
                 return self.total_rew
             else:
