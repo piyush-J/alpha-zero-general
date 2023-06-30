@@ -118,12 +118,16 @@ class MCTS():
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
             if self.args.MCTSmode == 0 and self.nn_iteration < self.args.nn_iter_threshold:
                 log.info("Using heuristic tree search without NN")
-                self.Ps[s], total_rew = canonicalBoard.prob, canonicalBoard.total_rew
-                if len(canonicalBoard.prior_actions) > 0:
-                    avg_rew = total_rew/(len(canonicalBoard.prior_actions)) # average reward, not doing +1 in denominator because the first step's total_rew is 0
-                else:
-                    avg_rew = total_rew # no prior actions - first step (0 expected reward) - init state of chessboard
-                v = avg_rew # *self.args.STEP_UPPER_BOUND # approximate the reward for the remaining steps
+                # Steps in MCTS: selection, expansion, simulation, backpropagation
+                # Value of the initial state = same as simulating a rollout from the initial state = avg (expectation of rew) of the metric dict * STEP_UPPER_BOUND
+                # For other intermediate steps = current average reward + (avg of the metric dict * remaining steps)
+                remaining_depth = self.args.STEP_UPPER_BOUND - canonicalBoard.step
+                assert remaining_depth >= 0
+                values_metric_dict = canonicalBoard.march_pos_lit_score_dict.values()
+                assert len(values_metric_dict) > 0
+                average_metric_dict = sum(values_metric_dict) / len(values_metric_dict)
+                v = canonicalBoard.total_rew + remaining_depth * average_metric_dict
+                self.Ps[s] = canonicalBoard.prob
             else:
                 self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
             valids = game.getValidMoves(canonicalBoard)
@@ -176,6 +180,7 @@ class MCTS():
         v1 = self.search(game_copy_dir1, next_s_dir1, level=level+1)
         v2 = self.search(game_copy_dir2, next_s_dir2, level=level+1)
         v = (v1 + v2)/2 # average reward of the two children
+        # the 2 children already have the reward which is the sum along the path, so the parent should have the average
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
