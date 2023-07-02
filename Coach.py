@@ -53,6 +53,7 @@ class Coach():
             reward_now = 0 # initialize reward for non-leaf nodes
         # Non-leaf nodes
         temp = int(level < self.args.tempThreshold)
+        if self.args.debugging: log.info(f"-----------------------------------\nDFS level: {level}")
         pi = self.mcts.getActionProb(game, board, temp=temp)
         valids = game.getValidMoves(board)
 
@@ -90,7 +91,7 @@ class Coach():
         game = self.game.get_copy()
         board = game.getInitBoard()
 
-        self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
+        r = self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
 
         if self.args.MCTSmode == 0:
             arena_cubes = [list(map(str, l)) for l in all_cubes]
@@ -101,6 +102,8 @@ class Coach():
             f.close()
 
             log.info("Saved cubes to file")
+            print("Reward: ", r)
+            print("Training examples: \n", trainExamples)
         return trainExamples
 
     def nolearnMCTS(self):
