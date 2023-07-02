@@ -50,7 +50,7 @@ class KSGame(Game):
         #             self.tri_dict[(a,b,c)] = count
 
     def _make_representation(self):
-        if self.args.MCTSmode == 0:
+        if self.args.MCTSmode in [0, 2]:
             board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict)
             board.calculate_march_metrics() # initialize the valid literals, prob, and march_var_score_dict
             return board
@@ -97,10 +97,10 @@ class KSGame(Game):
             r: 0 if game has not ended, reward otherwise. 
                
         """
-        if self.args.MCTSmode == 0:
+        if self.args.MCTSmode in [0, 2]:
             return self.getGameEndedMode0(board, eval_cls)
 
-        if board.is_done():
+        if board.is_done(): #TODO: include is_unknown()
             rew, solver_model = board.compute_reward()
             assert rew is not None
             if board.is_win(): # sat
@@ -176,7 +176,8 @@ class KSGame(Game):
             boardString: a quick conversion of board to a string format.
                          Required by MCTS for hashing.
         """
-        return calculate_hash(''.join(map(str, board.get_state_complete())))
+        return str(board.prior_actions)
+        # return calculate_hash(''.join(map(str, board.get_state_complete()))) # slow
     
     def triu2adj(self, board_triu): 
         assert len(board_triu) == self.order*(self.order-1)//2
