@@ -19,10 +19,10 @@ coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 args = dotdict({
     'numIters': 1,           # TODO: Change this to 1000
     'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
-    'tempThreshold': 10,        #
+    'tempThreshold': 5,        #
     'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-    'numMCTSSims': 50,          # Number of games moves for MCTS to simulate.
+    'numMCTSSims': 10,          # Number of games moves for MCTS to simulate.
     'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1,                 # controls the amount of exploration; keeping high for MCTSmode 0
 
@@ -38,8 +38,9 @@ args = dotdict({
     'phase': 'initial-testing',
 
     'debugging': True,
+    'wandb_logging': True,
 
-    'MCTSmode': 0, # mode 0 - executeEpisode, no learning, heuristic tree search, MCTS ignore direction;
+    'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
     'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
 
     'order': 17,
@@ -53,7 +54,7 @@ def main():
 
     # wandb login
 
-    if args.debugging:
+    if not args.wandb_logging:
         wandb.init(mode="disabled")
     else:
         wandb.init(reinit=True, 
@@ -91,49 +92,50 @@ def main():
         return
 
     # else ---
-
     c.learn()
 
-    data = [[x, y] for (x, y) in zip(g.log_giveup_rew, g.log_eval_var)]
-    table = wandb.Table(data=data, columns = ["solver_reward (NA)", "eval_var (NA)"])
-    wandb.log({"solver_rew vs eval_var (Non-Arena)" : wandb.plot.scatter(table,
-                                "solver_reward (NA)", "eval_var (NA)")})
-    
-    data = [[x, y] for (x, y) in zip(g.log_giveup_rewA, g.log_eval_varA)]
-    table = wandb.Table(data=data, columns = ["solver_reward (A)", "eval_var (A)"])
-    wandb.log({"solver_rew vs eval_var (Arena)" : wandb.plot.scatter(table,
-                                "solver_reward (A)", "eval_var (A)")})
-    
-    # data = [[s] for s in g.log_giveup_rewA]
-    # table = wandb.Table(data=data, columns=["solver_reward"])
-    fig = plt.figure(figsize =(10, 7))
-    plt.boxplot(g.log_giveup_rewA)
-    plt.savefig("boxplot1.png")
-    wandb.log({"Solver rewards (Arena)": wandb.Image("boxplot1.png")})
-    # wandb.log({'Solver rewards (Arena)': wandb.plot.histogram(table, "solver_reward (A)",
-    #                         title="Histogram")})
-    
-    # data = [[s] for s in g.log_eval_varA]
-    # table = wandb.Table(data=data, columns=["eval_var"])
-    plt.boxplot(g.log_eval_varA)
-    plt.savefig("boxplot2.png")
-    wandb.log({"Eval Var (Arena)": wandb.Image("boxplot2.png")})
-    # wandb.log({'Eval Var (Arena)': wandb.plot.histogram(table, "eval_var (A)",
-    #                         title="Histogram")})
-    
-    if len(g.log_sat_asgn) > 0:
-        log_sat_asgn_set = set([frozenset(asgn) for asgn in g.log_sat_asgn])
-        data = [[" ".join([str(x) for x in s])] for s in log_sat_asgn_set]
-        table =  wandb.Table(data=data, columns=['SAT Assignment'])
-        wandb.log({"sat_model": table})
+    if args.MCTSmode == 1:
 
-        asgn = data[0][0] # one sat assignment
-        asgn = list(map(int, asgn.split(" ")))
-        asgn_pos = [a for a in asgn if a > 0]
-        triu = [1 if i+1 in asgn_pos else 0 for i in range(g.edge_count)]
-        g.print_graph(g.triu2adj(triu))
-    
-    # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
+        data = [[x, y] for (x, y) in zip(g.log_giveup_rew, g.log_eval_var)]
+        table = wandb.Table(data=data, columns = ["solver_reward (NA)", "eval_var (NA)"])
+        wandb.log({"solver_rew vs eval_var (Non-Arena)" : wandb.plot.scatter(table,
+                                    "solver_reward (NA)", "eval_var (NA)")})
+        
+        data = [[x, y] for (x, y) in zip(g.log_giveup_rewA, g.log_eval_varA)]
+        table = wandb.Table(data=data, columns = ["solver_reward (A)", "eval_var (A)"])
+        wandb.log({"solver_rew vs eval_var (Arena)" : wandb.plot.scatter(table,
+                                    "solver_reward (A)", "eval_var (A)")})
+        
+        # data = [[s] for s in g.log_giveup_rewA]
+        # table = wandb.Table(data=data, columns=["solver_reward"])
+        fig = plt.figure(figsize =(10, 7))
+        plt.boxplot(g.log_giveup_rewA)
+        plt.savefig("boxplot1.png")
+        wandb.log({"Solver rewards (Arena)": wandb.Image("boxplot1.png")})
+        # wandb.log({'Solver rewards (Arena)': wandb.plot.histogram(table, "solver_reward (A)",
+        #                         title="Histogram")})
+        
+        # data = [[s] for s in g.log_eval_varA]
+        # table = wandb.Table(data=data, columns=["eval_var"])
+        plt.boxplot(g.log_eval_varA)
+        plt.savefig("boxplot2.png")
+        wandb.log({"Eval Var (Arena)": wandb.Image("boxplot2.png")})
+        # wandb.log({'Eval Var (Arena)': wandb.plot.histogram(table, "eval_var (A)",
+        #                         title="Histogram")})
+        
+        if len(g.log_sat_asgn) > 0:
+            log_sat_asgn_set = set([frozenset(asgn) for asgn in g.log_sat_asgn])
+            data = [[" ".join([str(x) for x in s])] for s in log_sat_asgn_set]
+            table =  wandb.Table(data=data, columns=['SAT Assignment'])
+            wandb.log({"sat_model": table})
+
+            asgn = data[0][0] # one sat assignment
+            asgn = list(map(int, asgn.split(" ")))
+            asgn_pos = [a for a in asgn if a > 0]
+            triu = [1 if i+1 in asgn_pos else 0 for i in range(g.edge_count)]
+            g.print_graph(g.triu2adj(triu))
+        
+        # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
 
 if __name__ == "__main__":
     main()

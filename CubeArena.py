@@ -226,7 +226,7 @@ if __name__ == '__main__':
 
         'debugging': False,
 
-        'MCTSmode': 0, # mode 0 - executeEpisode, no learning, heuristic tree search, MCTS ignore direction;
+        'MCTSmode': 0, 
 
         'order': 4, # 17,
         'MAX_LITERALS': 6, # 17*16//2,

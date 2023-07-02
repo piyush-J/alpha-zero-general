@@ -42,6 +42,7 @@ class MCTS():
         canonicalBoard = game.getCanonicalForm(board)
 
         for _ in range(self.args.numMCTSSims):
+            if self.args.debugging: log.info("MCTS Simulation #{}".format(_))
             self.search(game, canonicalBoard, verbose=verbose)
 
         s = game.stringRepresentation(canonicalBoard)
@@ -89,7 +90,9 @@ class MCTS():
             v: the negative of the value of the current canonicalBoard
         """
 
+        if self.args.debugging: log.info(f"MCTS Search at level {level}")
         s = game.stringRepresentation(canonicalBoard)
+        if self.args.debugging: log.info(f"String representation done: {s} with reward {canonicalBoard.total_rew:.4f} (avg: {canonicalBoard.total_rew/(canonicalBoard.step+1e-5):.2f})")
 
         if verbose:
             log.info(f"At level {level}\n{s}")
@@ -116,7 +119,7 @@ class MCTS():
             # leaf node
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
-            if self.args.MCTSmode == 0 and self.nn_iteration < self.args.nn_iter_threshold:
+            if self.args.MCTSmode == 0 or (self.args.MCTSmode != 0 and self.nn_iteration < self.args.nn_iter_threshold):
                 log.info("Using heuristic tree search without NN")
                 # Steps in MCTS: selection, expansion, simulation, backpropagation
                 # Value of the initial state = same as simulating a rollout from the initial state = avg (expectation of rew) of the metric dict * STEP_UPPER_BOUND
@@ -182,7 +185,7 @@ class MCTS():
         v = (v1 + v2)/2 # average reward of the two children
         # the 2 children already have the reward which is the sum along the path, so the parent should have the average
 
-        if (s, a) in self.Qsa:
+        if (s, a) in self.Qsa: # using (s,a) from the positive-dir of a
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
             self.Nsa[(s, a)] += 1
 
@@ -190,7 +193,16 @@ class MCTS():
             self.Qsa[(s, a)] = v
             self.Nsa[(s, a)] = 1
 
+        if (s, comp_a) in self.Qsa: # using (s,a) from the negative-dir of a
+            self.Qsa[(s, comp_a)] = (self.Nsa[(s, comp_a)] * self.Qsa[(s, comp_a)] + v) / (self.Nsa[(s, comp_a)] + 1)
+            self.Nsa[(s, comp_a)] += 1
+
+        else:
+            self.Qsa[(s, comp_a)] = v
+            self.Nsa[(s, comp_a)] = 1
+
         self.data.append([level, self.Qsa[s,a], cur_best, v])
+        self.data.append([level, self.Qsa[s,comp_a], cur_best, v])
 
         self.Ns[s] += 1
         return v
