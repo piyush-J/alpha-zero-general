@@ -43,6 +43,9 @@ class Board:
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
         return self.res is None and (self.step > self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
+    def is_unknown(self):
+        return self.res == 2
+    
     def is_win(self):
         return self.res == 1
     
@@ -50,7 +53,7 @@ class Board:
         return self.res == 0
 
     def is_done(self):
-        return self.is_giveup() or self.is_win() or self.is_fail()
+        return self.is_giveup() or self.is_win() or self.is_fail() or self.is_unknown()
     
     def get_and_reset_counters(self):
         counters = [self.counter_sat, self.counter_unsat, self.counter_giveup]

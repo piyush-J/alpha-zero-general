@@ -25,7 +25,7 @@ class BoardMode0(Board):
         self.prob = None
         self.march_pos_lit_score_dict = None
         self.current_metric_val = None
-        self.max_metric_val = len(edge_dict) # maximum possible value of the metric (unweighted)
+        self.max_metric_val = len(self.cnf_clauses_org) # maximum possible value of the metric (unweighted)
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
         return self.res is None and (self.step > self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
@@ -66,8 +66,10 @@ class BoardMode0(Board):
                 print(output)
                 print("Exiting...")
                 exit(0)
+            elif "s UNKNOWN" in output:
+                self.res = 2
             else:
-                print("Unknown result with empty dict!")
+                print("Unknown result with empty dict! Check tmp.cnf and tmp.cubes files")
                 print(output)
                 exit(0)
 
@@ -79,23 +81,19 @@ class BoardMode0(Board):
             prob[l] = march_pos_lit_score_dict[l]
             prob[self.lits2var[-l]] = march_pos_lit_score_dict[l]
         
-        try:
-            prob = [p/sum(prob) for p in prob] # only for +ve literals
-        except ZeroDivisionError:
+        if sum(prob) == 0:
             # uniform distribution
             prob = [1/(edge_vars*2) for _ in range(edge_vars*2+1)]
+            prob[0] = 0.0 # 0 is not a valid literal
+        else:
+            prob = [p/sum(prob) for p in prob] # only for +ve literals
 
         # normalize the values of the march_pos_lit_score_dict
         for k in march_pos_lit_score_dict.keys():
             march_pos_lit_score_dict[k] /= self.max_metric_val
 
         max_val = max(march_pos_lit_score_dict.values()) if len(march_pos_lit_score_dict) > 0 else 0
-        if max_val > 1:
-            # log.info(f"max_val > 1: {max_val}")
-            wandb.log({"depth": len(self.prior_actions), "max_val": max_val})
-        elif max_val == 0:
-            # log.info(f"max_val == 0: {max_val}")
-            wandb.log({"depth": len(self.prior_actions), "max_val": max_val})
+        wandb.log({"depth": self.step, "max_val": max_val})
 
         self.valid_literals = valid_pos_literals + valid_neg_literals # both +ve and -ve literals
         self.prob = prob
@@ -109,6 +107,7 @@ class BoardMode0(Board):
         assert self.is_done() == False
         # if action not in [self.lits2var[l] for l in self.get_legal_literals()]:
         #     print("Illegal move!")
+        if self.args.debugging: log.info(f"Executing action {action}")
         new_state = copy.deepcopy(self)
         new_state.valid_literals = None
         new_state.prob = None
@@ -127,21 +126,28 @@ class BoardMode0(Board):
         return new_state
 
     def compute_reward(self, eval_cls=False):
+        norm_rew = None
         if self.is_done():
-            if eval_cls:
-                return self.total_rew
-            elif self.is_win():
+            if self.is_win():
                 print("Found SAT!")
                 print(self.prior_actions)
                 print("Exiting...")
                 exit(0)
                 # return self.total_rew + self.args.STEP_UPPER_BOUND
             elif self.is_fail():
-                return 1
+                norm_rew = 1
+            elif self.is_unknown(): # results in unknown using march_cu so heavily penalize and don't go down this path
+                norm_rew = -1
             elif self.is_giveup(): 
-                return self.total_rew
+                norm_rew = self.total_rew
             else:
                 raise Exception("Unknown game state")
+            
+            if eval_cls:
+                return norm_rew * self.max_metric_val
+            else:
+                wandb.log({"depth": self.step, "norm_rew": norm_rew})
+                return norm_rew
         else:
             return None
 
