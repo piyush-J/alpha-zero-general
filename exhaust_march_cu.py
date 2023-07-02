@@ -12,7 +12,6 @@ valid_literals = None
 prob = None
 march_pos_lit_score_dict = None
 current_metric_val = None
-max_metric_val = None
 
 org_filename = "constraints_17_c_100000_2_2_0_final.simp"
 filename = "tmp.cnf"
@@ -22,6 +21,7 @@ all_results = {}
 all_results_nested = {}
 
 cnf = CNF(from_file=org_filename)
+max_metric_val = len(cnf.clauses) # maximum possible value of the metric (unweighted)
 
 cnf.to_file(filename)
 
