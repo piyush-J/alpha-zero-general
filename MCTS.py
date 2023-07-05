@@ -29,6 +29,7 @@ class MCTS():
 
         self.data = []
         self.all_logging_data = all_logging_data
+        self.cache_data = {}
 
     def getActionProb(self, game, board, temp=1, verbose=False):
         """
@@ -59,9 +60,9 @@ class MCTS():
         counts_sum = float(sum(counts))
         probs = [x / counts_sum for x in counts]
 
-        self.all_logging_data += self.data
-        log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(self.all_logging_data)}")
-        table = wandb.Table(data=self.all_logging_data, columns = ["level", "Qsa", "best_u", "v"])
+        all_data = self.all_logging_data + self.data
+        log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(all_data)}")
+        table = wandb.Table(data=all_data, columns = ["level", "Qsa", "best_u", "v"])
         wandb.log({"MCTS Qsa vs tree depth" : wandb.plot.scatter(table,
                                     "level", "Qsa")})
         wandb.log({"MCTS best_u vs tree depth" : wandb.plot.scatter(table,
@@ -93,6 +94,7 @@ class MCTS():
         if self.args.debugging: log.info(f"MCTS Search at level {level}")
         s = game.stringRepresentation(canonicalBoard)
         if self.args.debugging: log.info(f"String representation done: {s} with reward {canonicalBoard.total_rew:.4f} (avg: {canonicalBoard.total_rew/(canonicalBoard.step+1e-5):.2f})")
+        if self.args.debugging: log.info(canonicalBoard)
 
         if verbose:
             log.info(f"At level {level}\n{s}")
@@ -101,6 +103,12 @@ class MCTS():
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
             self.Es[s] = game.getGameEnded(canonicalBoard)
+        
+        if self.Es[s] is None and level >= self.args.STEP_UPPER_BOUND_MCTS-1: # level starts at 0
+            # self.Es[s] = canonicalBoard.total_rew # we cannot do this because this is MCTS-dependent termination, not an actual terminating state
+            if verbose:
+                log.info(f"Node is terminal node, reward is {canonicalBoard.total_rew}\n{s}")
+            return canonicalBoard.total_rew
 
         if self.Es[s] != None: # STEP 4 (I): BACKPROPAGATION
             # terminal node
@@ -169,13 +177,28 @@ class MCTS():
                     best_act = a
 
         a = best_act
-        #TODO: see why this is needed - is it because of the recursion? creating a copy because the game is modified in-place?
-        game_copy_dir1 = game.get_copy()
-        next_s_dir1 = game_copy_dir1.getNextState(canonicalBoard, a)
 
-        comp_a = canonicalBoard.get_complement_action(a) # complement of the literal
-        game_copy_dir2 = game.get_copy()
-        next_s_dir2 = game_copy_dir2.getNextState(canonicalBoard, comp_a)
+        if self.args.debugging: log.info(f"Best action is {a} with self.Ps[s][a] = {self.Ps[s][a]:.3f}, max self.Ps[s] value {max(self.Ps[s]):.3f}, same self.Ps[s][a] count = {sum(self.Ps[s] == self.Ps[s][a])}, next best self.Ps[s] = {[sorted(self.Ps[s], reverse=True)[:5]]}")
+        #TODO: see why this is needed - is it because of the recursion? creating a copy because the game is modified in-place?
+        
+        if (s, a) not in self.cache_data:
+            game_copy_dir1 = game.get_copy()
+            next_s_dir1 = game_copy_dir1.getNextState(canonicalBoard, a)
+
+            comp_a = canonicalBoard.get_complement_action(a) # complement of the literal
+            game_copy_dir2 = game.get_copy()
+            next_s_dir2 = game_copy_dir2.getNextState(canonicalBoard, comp_a)
+
+            log.info("Cache new data")
+            self.cache_data[(s, a)] = next_s_dir1
+            self.cache_data[(s, comp_a)] = next_s_dir2
+        else:
+            log.info("Using cached data")
+            comp_a = canonicalBoard.get_complement_action(a)
+            next_s_dir1 = self.cache_data[(s, a)]
+            next_s_dir2 = self.cache_data[(s, comp_a)]
+            game_copy_dir1 = game.get_copy()
+            game_copy_dir2 = game.get_copy()
 
         if verbose:
             log.info(f"Non-leaf node, considering action {a}, {comp_a} resulting in\n{next_s_dir1}, {next_s_dir2}")

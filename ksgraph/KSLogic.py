@@ -41,7 +41,7 @@ class Board:
         return f"Board: {self.get_flattened_clause()}, nlits: {self.nlits}, res: {self.res}, step: {self.step}, total_rew: {self.total_rew}, sat_or_unsat_leaf: {self.sat_or_unsat_leaf}, prior_actions: {self.prior_actions}, sat_unsat_actions: {self.sat_unsat_actions}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.step > self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
+        return self.res is None and (self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def is_unknown(self):
         return self.res == 2

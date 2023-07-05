@@ -27,8 +27,12 @@ class BoardMode0(Board):
         self.current_metric_val = None
         self.max_metric_val = len(self.cnf_clauses_org) # maximum possible value of the metric (unweighted)
 
+    def __str__(self):
+        return f"Board- res: {self.res}, step: {self.step}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
+
+
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.step > self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
+        return self.res is None and (self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def calculate_march_metrics(self):
         # TODO: file saving might cause issue with code parallelization
@@ -139,7 +143,7 @@ class BoardMode0(Board):
             elif self.is_unknown(): # results in unknown using march_cu so heavily penalize and don't go down this path
                 norm_rew = -1
             elif self.is_giveup(): 
-                norm_rew = self.total_rew
+                norm_rew = self.total_rew # if any changes are made here, make sure to change the reward in MCTS.py as well
             else:
                 raise Exception("Unknown game state")
             

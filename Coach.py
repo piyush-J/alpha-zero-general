@@ -1,5 +1,6 @@
 import logging
 import os
+import pickle
 import sys
 from collections import deque
 from pickle import Pickler, Unpickler
@@ -34,6 +35,7 @@ class Coach():
         self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
+        self.leaf_counter = 0
 
     def DFSUtil(self, game, board, level, trainExamples, all_cubes):
         # TODO: Incorporate canonicalBoard & symmetry appropriately when required in the future
@@ -48,6 +50,8 @@ class Coach():
         if reward_now: # reward is not None, i.e., game over
             flattened_list = itertools.chain.from_iterable(board.prior_actions)
             all_cubes.append(flattened_list)
+            self.leaf_counter += 1
+            if self.args.debugging: log.info(f"Leaf node: {self.leaf_counter} with state: {board}")
             return reward_now # only leaves have rewards & leaves don't have neighbors
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
@@ -58,6 +62,7 @@ class Coach():
         valids = game.getValidMoves(board)
 
         a = np.random.choice(len(pi), p=pi)
+        if self.args.debugging: log.info(f"DFS best action is {a} with pi = {pi[a]:.3f}, max pi value {max(pi):.3f}, same pi count = {sum(np.array(pi) == pi[a])}")
         game_copy_dir1 = game.get_copy()
         next_s_dir1 = game_copy_dir1.getNextState(board, a)
 
@@ -91,6 +96,7 @@ class Coach():
         game = self.game.get_copy()
         board = game.getInitBoard()
 
+        self.leaf_counter = 0
         r = self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
 
         if self.args.MCTSmode == 0:
@@ -103,12 +109,19 @@ class Coach():
 
             log.info("Saved cubes to file")
             print("Reward: ", r)
-            print("Training examples: \n", trainExamples)
+            with open('trainExamples.pkl', 'wb') as f:
+                pickle.dump(trainExamples, f)
+            print("Saved Training examples to trainExamples.pkl")
         return trainExamples
 
     def nolearnMCTS(self):
         self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)  # reset search tree every episode
+        # if os.path.exists("mcts_cache.pkl"):
+        #     with open('mcts_cache.pkl', 'rb') as f:
+        #         self.mcts.cache_data = pickle.load(f)
         self.executeEpisode()
+        # with open('mcts_cache.pkl', 'wb') as f:
+        #     pickle.dump(self.mcts.cache_data, f)
 
     def learn(self):
         """
@@ -129,6 +142,7 @@ class Coach():
 
                 for _ in tqdm(range(self.args.numEps), desc="Self Play"):
                     # TODO: can be parallelized
+                    self.all_logging_data += self.mcts.data
                     self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)  # reset search tree every episode
                     iterationTrainExamples += self.executeEpisode()
 
