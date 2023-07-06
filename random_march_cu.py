@@ -31,7 +31,7 @@ args = dotdict({
     'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
     'numItersForTrainExamplesHistory': 20,
 
-    'CCenv': True,
+    'CCenv': True, # True for all servers and laptop
     'model_name': 'MCTS',
     'model_notes': 'MCTS without NN',
     'model_mode': 'mode-0',

@@ -190,13 +190,13 @@ class MCTS():
             next_s_dir2 = game_copy_dir2.getNextState(canonicalBoard, comp_a)
 
             log.info("Cache new data")
-            self.cache_data[(s, a)] = next_s_dir1
-            self.cache_data[(s, comp_a)] = next_s_dir2
+            self.cache_data[(s, a)] = (next_s_dir1, canonicalBoard)
+            self.cache_data[(s, comp_a)] = (next_s_dir2, canonicalBoard)
         else:
             log.info("Using cached data")
             comp_a = canonicalBoard.get_complement_action(a)
-            next_s_dir1 = self.cache_data[(s, a)]
-            next_s_dir2 = self.cache_data[(s, comp_a)]
+            (next_s_dir1, canonicalBoard) = self.cache_data[(s, a)]
+            (next_s_dir2, canonicalBoard) = self.cache_data[(s, comp_a)]
             game_copy_dir1 = game.get_copy()
             game_copy_dir2 = game.get_copy()
 

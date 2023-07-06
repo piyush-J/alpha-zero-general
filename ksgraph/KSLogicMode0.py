@@ -43,7 +43,7 @@ class BoardMode0(Board):
         if len(self.prior_actions) > 0:
             assert self.cnf_clauses_org + self.prior_actions == self.cnf.clauses # sanity check
 
-        # ../PhysicsCheck/gen_cubes/march_cu/march_cu tmp.cnf -o tmp.cubes -d 1 -m 136
+        # ../PhysicsCheck/gen_cubes/march_cu/march_cu tmp.cnf -o tmp.cubes -d 1 -m ...
         result = subprocess.run(['../PhysicsCheck/gen_cubes/march_cu/march_cu', 
                                 filename,
                                 '-o',
