@@ -51,7 +51,7 @@ class KSGame(Game):
 
     def _make_representation(self):
         if self.args.MCTSmode in [0, 2]:
-            board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict)
+            board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict, max_metric_val=len(self.cnf.clauses))
             board.calculate_march_metrics() # initialize the valid literals, prob, and march_var_score_dict
             return board
         return Board(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict)

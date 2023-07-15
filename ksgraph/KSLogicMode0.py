@@ -9,23 +9,28 @@ from dataclasses import dataclass
 
 import numpy as np
 from pysat.solvers import Solver
+from pysat.formula import CNF
 
 import wandb
 
 from .KSLogic import Board
 
 log = logging.getLogger(__name__)
+cnf_obj = None
 
 class BoardMode0(Board):
 
-    def __init__(self, args, cnf, edge_dict):
+    def __init__(self, args, cnf, edge_dict, max_metric_val):
         Board.__init__(self, args, cnf, edge_dict)
         self.order = args.order
         self.valid_literals = None
         self.prob = None
         self.march_pos_lit_score_dict = None
         self.current_metric_val = None
-        self.max_metric_val = len(self.cnf_clauses_org) # maximum possible value of the metric (unweighted)
+        self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
+
+        global cnf_obj
+        cnf_obj = cnf
 
     def __str__(self):
         return f"Board- res: {self.res}, step: {self.step}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
@@ -36,12 +41,14 @@ class BoardMode0(Board):
     
     def calculate_march_metrics(self):
         # TODO: file saving might cause issue with code parallelization
+        if self.args.debugging: log.info(f"Calculating march metrics")
         filename = "tmp.cnf"
-        self.cnf.to_file(filename)
+        CNF(from_clauses=self.cnf()).to_file(filename)
+        if self.args.debugging: log.info(f"Saved to file")
         edge_vars = self.order*(self.order-1)//2 
 
-        if len(self.prior_actions) > 0:
-            assert self.cnf_clauses_org + self.prior_actions == self.cnf.clauses # sanity check
+        # if len(self.prior_actions) > 0:
+        #     assert self.cnf_clauses_org + self.prior_actions == self.cnf.clauses # sanity check
 
         # ../PhysicsCheck/gen_cubes/march_cu/march_cu tmp.cnf -o tmp.cubes -d 1 -m ...
         result = subprocess.run(['../PhysicsCheck/gen_cubes/march_cu/march_cu', 
@@ -113,6 +120,7 @@ class BoardMode0(Board):
         #     print("Illegal move!")
         if self.args.debugging: log.info(f"Executing action {action}")
         new_state = copy.deepcopy(self)
+        if self.args.debugging: log.info(f"Deepcopy done")
         new_state.valid_literals = None
         new_state.prob = None
         new_state.march_pos_lit_score_dict = None
@@ -121,12 +129,13 @@ class BoardMode0(Board):
         new_state.step += 1
         chosen_literal = [new_state.var2lits[action]]
         new_state.prior_actions.append(chosen_literal)
-        new_state.cnf.append(chosen_literal) # append to the cnf object
+        # new_state.cnf.append(chosen_literal) # append to the cnf object
         # collecting from the parent node's dict; TODO: not considering direction, so choosing the +ve one (abs)
         assert self.march_pos_lit_score_dict is not None
         self.current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
         new_state.total_rew += self.current_metric_val # adding so that the leaves denote the total reward of the path
         new_state.calculate_march_metrics()
+        if self.args.debugging: log.info(f"Calculated march metrics")
         return new_state
 
     def compute_reward(self, eval_cls=False):
@@ -165,7 +174,7 @@ class BoardMode0(Board):
             if abs(chosen_literal) in march_pos_lit_score_dict:
                 continue
 
-            with Solver(bootstrap_with=self.cnf.clauses) as solver:
+            with Solver(bootstrap_with=self.cnf()) as solver:
                 out = solver.propagate(assumptions=[chosen_literal])
                 assert out is not None
                 not_unsat, asgn = out
