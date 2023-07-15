@@ -1,13 +1,14 @@
 import logging
 import math
+from memory_profiler import profile
 
 import numpy as np
+import psutil
 import wandb
 
 EPS = 1e-8
 
 log = logging.getLogger(__name__)
-
 
 class MCTS():
     """
@@ -44,6 +45,10 @@ class MCTS():
 
         for _ in range(self.args.numMCTSSims):
             if self.args.debugging: log.info("MCTS Simulation #{}".format(_))
+            # Getting % usage of virtual_memory ( 3rd field)
+            print('RAM memory % used:', psutil.virtual_memory()[2])
+            # Getting usage of virtual_memory in GB ( 4th field)
+            print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
             self.search(game, canonicalBoard, verbose=verbose)
 
         s = game.stringRepresentation(canonicalBoard)
