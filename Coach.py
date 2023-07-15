@@ -51,7 +51,7 @@ class Coach():
             flattened_list = itertools.chain.from_iterable(board.prior_actions)
             all_cubes.append(flattened_list)
             self.leaf_counter += 1
-            if self.args.debugging: log.info(f"Leaf node: {self.leaf_counter} with state: {board}")
+            if self.args.debugging: log.info(f"Leaf node: {self.leaf_counter} with reward = {reward_now} and state: {board}")
             return reward_now # only leaves have rewards & leaves don't have neighbors
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
