@@ -35,16 +35,17 @@ args = dotdict({
     'model_name': 'MCTS',
     'model_notes': 'MCTS without NN',
     'model_mode': 'mode-0',
-    'phase': 'initial-testing',
+    'phase': 'scaling',
+    'version': 'v1',
 
     'debugging': True,
-    'wandb_logging': True,
+    'wandb_logging': False,
 
     'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
     'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
 
-    'order': 17,
-    'MAX_LITERALS': 17*16//2,
+    'order': 19,
+    'MAX_LITERALS': 19*18//2,
     'STATE_SIZE': 10,
     'STEP_UPPER_BOUND': 10, # max depth of CnC
     'STEP_UPPER_BOUND_MCTS': 4 # max depth of MCTS
@@ -59,9 +60,9 @@ def main():
         wandb.init(mode="disabled")
     else:
         wandb.init(reinit=True, 
-                    name=args.model_name+"_"+args.model_mode+"_"+args.phase,
+                    name=args.version+"_"+args.model_name+"_"+args.model_mode+"_"+args.phase,
                     project="AlphaSAT", 
-                    tags=[args.model_name, args.model_mode, args.phase], 
+                    tags=[args.model_name, args.model_mode, args.phase, args.version], 
                     notes=args.model_notes, 
                     settings=wandb.Settings(start_method='fork' if args.CCenv else 'thread'), 
                     save_code=True)
@@ -69,7 +70,7 @@ def main():
     wandb.config.update(args)
 
     log.info(f'Loading {KSGame.__name__}...')
-    g = KSGame(args=args, filename="constraints_17_c_100000_2_2_0_final.simp") 
+    g = KSGame(args=args, filename="constraints_19_c_100000_2_2_0_final.simp") 
     log.info('Loading %s...', ksnn.__name__)
     nnet = ksnn(g)
 
@@ -94,6 +95,11 @@ def main():
 
     # else ---
     c.learn()
+
+    wandb.save('arena_cubes.txt')
+    wandb.save('tmp.cnf')
+    wandb.save('tmp.cubes')
+    wandb.save('trainExamples.pkl')
 
     if args.MCTSmode == 1:
 
