@@ -109,6 +109,7 @@ class BoardMode0(Board):
         self.valid_literals = valid_pos_literals + valid_neg_literals # both +ve and -ve literals
         self.prob = prob
         self.march_pos_lit_score_dict = march_pos_lit_score_dict
+        self.ranked_keys = sorted(march_pos_lit_score_dict, reverse=True)
     
     def get_legal_literals(self):
         assert self.valid_literals is not None

@@ -194,3 +194,58 @@ class KSGame(Game):
         plt.tight_layout()
         plt.savefig("Graph.png", format="PNG")
         wandb.log({"example sat": wandb.Image("Graph.png")})
+
+# from pysat.solvers import Solver
+# from pysat.formula import CNF
+# from threading import Timer
+# import time
+
+# solver_names = ['minisat22', 'glucose4'] # 'cadical153'
+
+# cnf = CNF(from_file='constraints_19_c_100000_2_2_0_final.simp')
+
+# def interrupt(s):
+#     s.interrupt()
+
+# for s_name in solver_names:
+#     print(s_name)
+#     st = time.time()
+#     solver = Solver(name=s_name, bootstrap_with=cnf, use_timer=True)
+#     print(time.time()-st)
+#     # res = solver.solve(assumptions=[45])
+#     # t = solver.time()
+#     # print(s_name, res, t)
+#     # print(solver.accum_stats())
+#     # print("------")
+
+#     if s_name not in ['cadical103', 'cadical153', 'lingeling']:
+#         try:
+#             timer = Timer(50, interrupt, [solver])
+#             timer.start()
+#             print(solver.solve_limited(expect_interrupt=True))
+#             print(solver.time())
+#             print(solver.accum_stats())
+#             solver.clear_interrupt()
+#             print("------")
+#         except Exception as e:
+#             print(e)
+#             print("------")
+
+#     #     try:
+#     #         solver.conf_budget(2000)  # getting at most 2000 conflicts
+#     #         print(solver.solve_limited())
+#     #         print(solver.time())
+#     #         print(solver.accum_stats())
+#     #         print("------")
+#     #     except Exception as e:
+#     #         print(e)
+#     #         print("------")
+    
+#     #     try:
+#     #         r = solver.propagate(assumptions=[45, 90, 10])
+#     #         print(solver.time())
+#     #         print(r)
+#     #     except Exception as e:
+#     #         print(e)
+
+#     print("=======================")

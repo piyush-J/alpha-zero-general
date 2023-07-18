@@ -167,6 +167,7 @@ class MCTS():
         valids = game.getValidMoves(canonicalBoard)
         cur_best = -float('inf')
         best_act = -1
+        all_u = []
 
         # pick the action with the highest upper confidence bound
         for a in range(game.getActionSize()): # STEP 1: SELECTION
@@ -180,6 +181,10 @@ class MCTS():
                 if u > cur_best:
                     cur_best = u
                     best_act = a
+
+                all_u.append(u)
+
+        log.info(f"MCTS u - Mean: {np.mean(all_u)}, Std: {np.std(all_u)}, Min: {np.min(all_u)}, Max: {np.max(all_u)}, 90th perc: {np.percentile(all_u, 90)}")
 
         a = best_act
 
