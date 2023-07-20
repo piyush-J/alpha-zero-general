@@ -27,6 +27,7 @@ class BoardMode0(Board):
         self.prob = None
         self.march_pos_lit_score_dict = None
         self.current_metric_val = None
+        self.ranked_keys = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
 
         global cnf_obj
@@ -84,6 +85,10 @@ class BoardMode0(Board):
                 print(output)
                 exit(0)
 
+        # truncate dict to keep only top 3 values
+        sorted_march_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
+        march_pos_lit_score_dict = dict(sorted_march_items[:3])
+
         valid_pos_literals = list(march_pos_lit_score_dict.keys())
         valid_neg_literals = [-l for l in valid_pos_literals]
 
@@ -109,7 +114,8 @@ class BoardMode0(Board):
         self.valid_literals = valid_pos_literals + valid_neg_literals # both +ve and -ve literals
         self.prob = prob
         self.march_pos_lit_score_dict = march_pos_lit_score_dict
-        self.ranked_keys = sorted(march_pos_lit_score_dict, reverse=True)
+        sorted_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
+        self.ranked_keys = [k for k,v in sorted_items]
     
     def get_legal_literals(self):
         assert self.valid_literals is not None
@@ -126,6 +132,7 @@ class BoardMode0(Board):
         new_state.prob = None
         new_state.march_pos_lit_score_dict = None
         new_state.current_metric_val = None
+        new_state.ranked_keys = None
 
         new_state.step += 1
         chosen_literal = [new_state.var2lits[action]]
