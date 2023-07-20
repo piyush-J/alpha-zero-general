@@ -22,9 +22,9 @@ args = dotdict({
     'tempThreshold': 5,        #
     'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-    'numMCTSSims': 20,          # Number of games moves for MCTS to simulate.
+    'numMCTSSims': 10,          # Number of games moves for MCTS to simulate.
     'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
-    'cpuct': 1,                 # controls the amount of exploration; keeping high for MCTSmode 0
+    'cpuct': 3,                 # controls the amount of exploration; keeping high for MCTSmode 0
 
     'checkpoint': './temp/',
     'load_model': False,
@@ -39,13 +39,13 @@ args = dotdict({
     'version': 'v1',
 
     'debugging': True,
-    'wandb_logging': False,
+    'wandb_logging': True,
 
     'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
     'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
 
-    'order': 19,
-    'MAX_LITERALS': 19*18//2,
+    'order': 18,
+    'MAX_LITERALS': 18*17//2,
     'STATE_SIZE': 10,
     'STEP_UPPER_BOUND': 10, # max depth of CnC
     'STEP_UPPER_BOUND_MCTS': 4 # max depth of MCTS
@@ -70,7 +70,7 @@ def main():
     wandb.config.update(args)
 
     log.info(f'Loading {KSGame.__name__}...')
-    g = KSGame(args=args, filename="constraints_19_c_100000_2_2_0_final.simp") 
+    g = KSGame(args=args, filename="constraints_18_c_100000_2_2_0_final.simp") 
     log.info('Loading %s...', ksnn.__name__)
     nnet = ksnn(g)
 
