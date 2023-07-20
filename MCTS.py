@@ -52,6 +52,7 @@ class MCTS():
 
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
+        print("Non zero elements in counts: ", [(ind_, elem) for ind_, elem in enumerate(counts) if elem != 0])
 
         if temp == 0:
             bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
@@ -166,7 +167,7 @@ class MCTS():
         valids = game.getValidMoves(canonicalBoard)
         cur_best = -float('inf')
         best_act = -1
-        all_u = []
+        all_u = {}
 
         # pick the action with the highest upper confidence bound
         for a in range(game.getActionSize()): # STEP 1: SELECTION
@@ -174,20 +175,36 @@ class MCTS():
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                             1 + self.Nsa[(s, a)])
+                    print(f"a: {a}, u: {u:.6f}, self.Qsa[(s, a)]: {self.Qsa[(s, a)]:.4f}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)]):.6f}")
+                    
                 else:
+                    # assert self.Ns[s] == 0, f"self.Ns[s] = {self.Ns[s]} for s = {s}, a = {a}, canonicalBoard = {canonicalBoard}"
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
+                    print(f"a: {a}, u: {u}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s] + EPS)}")
 
                 if u > cur_best:
                     cur_best = u
                     best_act = a
 
-                all_u.append(u)
+                all_u[a] = u
 
-        log.info(f"MCTS u - Mean: {np.mean(all_u)}, Std: {np.std(all_u)}, Min: {np.min(all_u)}, Max: {np.max(all_u)}, 90th perc: {np.percentile(all_u, 90)}")
+        print("Canonical board march metrics:")
+        sorted_march_items = sorted(canonicalBoard.march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
+        for k, v in sorted_march_items[:5]:
+            print(f"{k}: {v}")
+        print("Canonical board best u vals:")
+        sorted_u_items = sorted(all_u.items(), key=lambda x:x[1], reverse=True)
+        for k, v in sorted_u_items[:5]:
+            print(f"{k}: {v}")
 
         a = best_act
 
-        if self.args.debugging: log.info(f"Best action is {a} with self.Ps[s][a] = {self.Ps[s][a]:.3f}, max self.Ps[s] value {max(self.Ps[s]):.3f}, same self.Ps[s][a] count = {sum(self.Ps[s] == self.Ps[s][a])}, next best self.Ps[s] = {[sorted(self.Ps[s], reverse=True)[:5]]}")
+        if self.args.debugging: 
+            log.info(f"Best action is {a} with self.Ps[s][a] = {self.Ps[s][a]:.3f}")
+            print(f"max self.Ps[s] value {max(self.Ps[s]):.3f}, same self.Ps[s][a] count = {sum(self.Ps[s] == self.Ps[s][a])}")
+            print(f"best self.Ps[s] vals = {[sorted(enumerate(self.Ps[s]), reverse=True, key=lambda x:x[1])[:6]]}")
+
+        
         #TODO: see why this is needed - is it because of the recursion? creating a copy because the game is modified in-place?
         
         if (s, a) not in self.cache_data:
