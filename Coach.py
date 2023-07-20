@@ -49,7 +49,10 @@ class Coach():
         reward_now = game.getGameEnded(board)
         if reward_now: # reward is not None, i.e., game over
             flattened_list = itertools.chain.from_iterable(board.prior_actions)
-            all_cubes.append(flattened_list)
+            if board.is_fail():
+                log.info("March said UNSAT --- skipping this cube (not adding to file)")
+            else:
+                all_cubes.append(flattened_list)
             self.leaf_counter += 1
             if self.args.debugging: log.info(f"Leaf node: {self.leaf_counter} with reward = {reward_now} and state: {board}")
             return reward_now # only leaves have rewards & leaves don't have neighbors
@@ -63,7 +66,10 @@ class Coach():
 
         a = np.random.choice(len(pi), p=pi)
         march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
-        if self.args.debugging: log.info(f"DFS best action is {a} with rank {march_rank}, pi = {pi[a]:.3f}, max pi value {max(pi):.3f}, same pi count = {sum(np.array(pi) == pi[a])}")
+        if self.args.debugging: 
+            print(f"a: {a}, board.var2lits[a]: {board.var2lits[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
+            print("Board: ", board)
+            log.info(f"DFS best action is {a} with rank {march_rank}, pi = {pi[a]:.3f}, max pi value {max(pi):.3f}, same pi count = {sum(np.array(pi) == pi[a])}")
         wandb.log({"march_rank": march_rank})
         game_copy_dir1 = game.get_copy()
         next_s_dir1 = game_copy_dir1.getNextState(board, a)
