@@ -13,15 +13,15 @@ from pysat.formula import CNF
 
 import wandb
 
-from .KSLogic import Board
+from .KSLogic import Board, Node
 
 log = logging.getLogger(__name__)
 cnf_obj = None
 
 class BoardMode0(Board):
 
-    def __init__(self, args, cnf, edge_dict, max_metric_val):
-        Board.__init__(self, args, cnf, edge_dict)
+    def __init__(self, args, cnf, edge_dict, max_metric_val, pysat_propagate):
+        Board.__init__(self, args, cnf, edge_dict, pysat_propagate)
         self.order = args.order
         self.valid_literals = None
         self.prob = None
@@ -36,54 +36,15 @@ class BoardMode0(Board):
     def __str__(self):
         return f"Board- res: {self.res}, step: {self.step}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
 
-
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
         return self.res is None and (self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def calculate_march_metrics(self):
-        # TODO: file saving might cause issue with code parallelization
         if self.args.debugging: log.info(f"Calculating march metrics")
-        filename = "tmp.cnf"
-        CNF(from_clauses=self.cnf()).to_file(filename)
-        if self.args.debugging: log.info(f"Saved to file")
         edge_vars = self.order*(self.order-1)//2 
-
-        # if len(self.prior_actions) > 0:
-        #     assert self.cnf_clauses_org + self.prior_actions == self.cnf.clauses # sanity check
-
-        # ../PhysicsCheck/gen_cubes/march_cu/march_cu tmp.cnf -o tmp.cubes -d 1 -m ...
-        result = subprocess.run(['../PhysicsCheck/gen_cubes/march_cu/march_cu', 
-                                filename,
-                                '-o',
-                                'tmp.cubes', 
-                                '-d', '1', '-m', str(edge_vars)], capture_output=True, text=True)
-        output = result.stdout
-
-        # two groups enclosed in separate ( and ) bracket
-        # this score considers the product of the two sides which can create problem (Refer Debugging Notes #7)
-        # march_pos_lit_score_dict = dict(re.findall(r"alphasat: variable (\d+) with score (\d+)", output))
-        # march_pos_lit_score_dict = {int(k):float(v) for k,v in march_pos_lit_score_dict.items()}
-
-        re_out = re.findall(r"alphasat: variable: (\d+), w-left: (\d+.\d+), w-right: (\d+.\d+)", output)
-        march_pos_lit_score_dict = {int(k):(float(v)+float(w))/2.0 for k,v,w in re_out} # average of the two sides
-
-        if len(march_pos_lit_score_dict) == 0:
-            unsat_check = re.findall(r"c number of cubes (\d+), including (\d+) refuted leaf", output)
-            if len(unsat_check) > 0 and unsat_check[0][0] == unsat_check[0][1] in output:
-                assert len(unsat_check) == 1
-                self.res = 0
-            elif "SATISFIABLE" in output:
-                self.res = 1
-                print("Found SAT!")
-                print(output)
-                print("Exiting...")
-                exit(0)
-            elif "s UNKNOWN" in output:
-                self.res = 2
-            else:
-                print("Unknown result with empty dict! Check tmp.cnf and tmp.cubes files")
-                print(output)
-                exit(0)
+        res, march_pos_lit_score_dict = self.pysat_propagate.propagate(Node(self.prior_actions))
+        if res == 0:
+            self.res = 0
 
         # truncate dict to keep only top 3 values
         sorted_march_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)

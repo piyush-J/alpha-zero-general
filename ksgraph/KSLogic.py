@@ -12,7 +12,7 @@ cnf_obj = None
 
 class Board:
 
-    def __init__(self, args, cnf, edge_dict):
+    def __init__(self, args, cnf, edge_dict, pysat_propagate):
         self.args = args
         # self.cnf_clauses_org = copy.deepcopy(cnf.clauses)
         # self.cnf = copy.deepcopy(cnf)
@@ -38,6 +38,8 @@ class Board:
         vars_all = [self.args.MAX_LITERALS + (-c) if c<0 else c for c in literals_all]
         self.lits2var = dict(zip(literals_all, vars_all))
         self.var2lits = dict(zip(vars_all, literals_all))
+
+        self.pysat_propagate = pysat_propagate
 
         global cnf_obj
         cnf_obj = cnf

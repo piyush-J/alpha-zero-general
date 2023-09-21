@@ -119,3 +119,9 @@
 # table = wandb.Table(data=data, columns = ["solver_reward (NA)", "eval_var (NA)"])
 # wandb.log({'Solver rewards (Arena)': wandb.plot.histogram(table, "solver_reward (NA)",
 #                         title="Histogram")})
+
+
+from march_pysat import MarchPysat, Node
+
+march_pysat = MarchPysat(filename="constraints_17_c_100000_2_2_0_final.simp", m=136)
+march_pysat.run_cnc()
