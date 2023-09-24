@@ -13,10 +13,13 @@ from pysat.formula import CNF
 
 import wandb
 
-from .KSLogic import Board, Node
+from .KSLogic import Board
+
+from .EvalVarCalc import Node, MarchPysatPropagate
 
 log = logging.getLogger(__name__)
 cnf_obj = None
+pysat_propagate_obj = None
 
 class BoardMode0(Board):
 
@@ -30,6 +33,9 @@ class BoardMode0(Board):
         self.ranked_keys = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
 
+        global pysat_propagate_obj
+        pysat_propagate_obj = pysat_propagate
+
         global cnf_obj
         cnf_obj = cnf
 
@@ -42,7 +48,10 @@ class BoardMode0(Board):
     def calculate_march_metrics(self):
         if self.args.debugging: log.info(f"Calculating march metrics")
         edge_vars = self.order*(self.order-1)//2 
-        res, march_pos_lit_score_dict = self.pysat_propagate.propagate(Node(self.prior_actions))
+        assert pysat_propagate_obj is not None
+        prior_actions_flat = list(itertools.chain.from_iterable(self.prior_actions))
+        res, march_pos_lit_score_dict = pysat_propagate_obj.propagate(Node(prior_actions_flat))
+        # print(res, march_pos_lit_score_dict)
         if res == 0:
             self.res = 0
 

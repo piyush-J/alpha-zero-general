@@ -8,7 +8,9 @@ from pysat.solvers import Solver
 
 import wandb
 
+# global variable to avoid copying while creating copies of the board
 cnf_obj = None
+pysat_propagate_obj = None 
 
 class Board:
 
@@ -39,7 +41,8 @@ class Board:
         self.lits2var = dict(zip(literals_all, vars_all))
         self.var2lits = dict(zip(vars_all, literals_all))
 
-        self.pysat_propagate = pysat_propagate
+        global pysat_propagate_obj
+        pysat_propagate_obj = pysat_propagate
 
         global cnf_obj
         cnf_obj = cnf

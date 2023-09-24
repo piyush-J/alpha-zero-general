@@ -175,12 +175,12 @@ class MCTS():
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                             1 + self.Nsa[(s, a)])
-                    print(f"a: {a}, u: {u:.6f}, self.Qsa[(s, a)]: {self.Qsa[(s, a)]:.4f}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)]):.6f}")
+                    # print(f"a: {a}, u: {u:.6f}, self.Qsa[(s, a)]: {self.Qsa[(s, a)]:.4f}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)]):.6f}")
                     
                 else:
                     # assert self.Ns[s] == 0, f"self.Ns[s] = {self.Ns[s]} for s = {s}, a = {a}, canonicalBoard = {canonicalBoard}"
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
-                    print(f"a: {a}, u: {u}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s] + EPS)}")
+                    # print(f"a: {a}, u: {u}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s] + EPS)}")
 
                 if u > cur_best:
                     cur_best = u
@@ -188,14 +188,14 @@ class MCTS():
 
                 all_u[a] = u
 
-        print("Canonical board march metrics:")
+        # print("Canonical board march metrics:")
         sorted_march_items = sorted(canonicalBoard.march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
-        for k, v in sorted_march_items[:5]:
-            print(f"{k}: {v}")
-        print("Canonical board best u vals:")
+        # for k, v in sorted_march_items[:5]:
+        #     print(f"{k}: {v}")
+        # print("Canonical board best u vals:")
         sorted_u_items = sorted(all_u.items(), key=lambda x:x[1], reverse=True)
-        for k, v in sorted_u_items[:5]:
-            print(f"{k}: {v}")
+        # for k, v in sorted_u_items[:5]:
+        #     print(f"{k}: {v}")
 
         a = best_act
 

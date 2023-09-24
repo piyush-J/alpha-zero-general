@@ -39,7 +39,7 @@ args = dotdict({
     'version': 'v1',
 
     'debugging': True,
-    'wandb_logging': True,
+    'wandb_logging': False,
 
     'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
     'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
@@ -48,7 +48,7 @@ args = dotdict({
     'MAX_LITERALS': 18*17//2,
     'STATE_SIZE': 10,
     'STEP_UPPER_BOUND': 10, # max depth of CnC
-    'STEP_UPPER_BOUND_MCTS': 4 # max depth of MCTS
+    'STEP_UPPER_BOUND_MCTS': 5 # max depth of MCTS
 })
 
 
