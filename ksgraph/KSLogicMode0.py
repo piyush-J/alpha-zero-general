@@ -29,6 +29,7 @@ class BoardMode0(Board):
         self.valid_literals = None
         self.prob = None
         self.march_pos_lit_score_dict = None
+        self.len_asgn_edge_vars = None
         self.current_metric_val = None
         self.ranked_keys = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
@@ -43,15 +44,18 @@ class BoardMode0(Board):
         return f"Board- res: {self.res}, step: {self.step}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
+        return self.res is None and (self.len_asgn_edge_vars >= self.args.VARS_ELIMINATED or self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def calculate_march_metrics(self):
         if self.args.debugging: log.info(f"Calculating march metrics")
         edge_vars = self.order*(self.order-1)//2 
         assert pysat_propagate_obj is not None
         prior_actions_flat = list(itertools.chain.from_iterable(self.prior_actions))
-        res, march_pos_lit_score_dict = pysat_propagate_obj.propagate(Node(prior_actions_flat))
+        res, len_asgn_edge_vars, march_pos_lit_score_dict = pysat_propagate_obj.propagate(Node(prior_actions_flat))
         # print(res, march_pos_lit_score_dict)
+
+        self.len_asgn_edge_vars = len_asgn_edge_vars 
+
         if res == 0:
             self.res = 0
 

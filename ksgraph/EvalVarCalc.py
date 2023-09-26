@@ -56,13 +56,14 @@ class MarchPysatPropagate():
 
         out1 = self.solver.propagate(assumptions=node.prior_actions)
         assert out1 is not None
-        not_unsat1, _ = out1
+        not_unsat1, asgn1 = out1
+        len_asgn_edge_vars = len(set(asgn1).intersection(set(self.literals_all))) # number of assigned edge variables
 
         # check for refutation
         if not not_unsat1:
             node.refuted = True
             node.reward = 1.0 # max reward
-            return 0, {k: 0 for k in range(1, self.m+1)} # pass an empty dict
+            return 0, len_asgn_edge_vars, {k: 0 for k in range(1, self.m+1)} # pass an empty dict
         else:
             node.refuted = False
 
@@ -89,4 +90,4 @@ class MarchPysatPropagate():
         # get the key (var) of the best value (eval_var)
         # node.next_best_var = max(all_var_rew.items(), key=operator.itemgetter(1))[0]
 
-        return 1, all_var_rew
+        return 1, len_asgn_edge_vars, all_var_rew

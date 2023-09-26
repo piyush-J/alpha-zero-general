@@ -47,7 +47,8 @@ args = dotdict({
     'order': 18,
     'MAX_LITERALS': 18*17//2,
     'STATE_SIZE': 10,
-    'STEP_UPPER_BOUND': 10, # max depth of CnC
+    'STEP_UPPER_BOUND': 20, # max depth of CnC
+    'VARS_ELIMINATED': 20, # max number of vars to be eliminated
     'STEP_UPPER_BOUND_MCTS': 5 # max depth of MCTS
 })
 
