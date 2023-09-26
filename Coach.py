@@ -65,10 +65,11 @@ class Coach():
         valids = game.getValidMoves(board)
 
         a = np.random.choice(len(pi), p=pi)
-        march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
         if self.args.debugging: 
             print(f"a: {a}, board.var2lits[a]: {board.var2lits[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
             print("Board: ", board)
+        march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
+        if self.args.debugging: 
             log.info(f"DFS best action is {a} with rank {march_rank}, pi = {pi[a]:.3f}, max pi value {max(pi):.3f}, same pi count = {sum(np.array(pi) == pi[a])}")
         wandb.log({"march_rank": march_rank})
         game_copy_dir1 = game.get_copy()

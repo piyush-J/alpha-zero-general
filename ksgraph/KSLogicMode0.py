@@ -55,9 +55,8 @@ class BoardMode0(Board):
         if res == 0:
             self.res = 0
 
-        # truncate dict to keep only top 3 values
         sorted_march_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
-        march_pos_lit_score_dict = dict(sorted_march_items[:3])
+        march_pos_lit_score_dict = dict(sorted_march_items) # dict(sorted_march_items[:3])
 
         valid_pos_literals = list(march_pos_lit_score_dict.keys())
         valid_neg_literals = [-l for l in valid_pos_literals]
