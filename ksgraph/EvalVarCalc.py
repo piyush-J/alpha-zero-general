@@ -1,5 +1,6 @@
 from pysat.solvers import Solver
 from pysat.formula import CNF
+import operator
 
 class Node():
 
@@ -78,7 +79,7 @@ class MarchPysatPropagate():
             out = self.solver.propagate(assumptions=node.prior_actions+[literal])
             assert out is not None
             not_unsat2, asgn = out
-            all_lit_rew[literal] = len(asgn)
+            all_lit_rew[literal] = len(set(asgn).intersection(set(self.literals_all))) # number of assigned edge variables
             # if not not_unsat2:
             #     print("interim UNSAT for ", node.prior_actions+[literal])
 
@@ -88,6 +89,6 @@ class MarchPysatPropagate():
                 all_var_rew[literal] = (all_lit_rew[literal] * all_lit_rew[-literal]) + all_lit_rew[literal] + all_lit_rew[-literal]
 
         # get the key (var) of the best value (eval_var)
-        # node.next_best_var = max(all_var_rew.items(), key=operator.itemgetter(1))[0]
+        next_best_var = max(all_var_rew.items(), key=operator.itemgetter(1))[0]
 
         return 1, len_asgn_edge_vars, all_var_rew
