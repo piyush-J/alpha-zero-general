@@ -33,6 +33,7 @@ class BoardMode0(Board):
         self.current_metric_val = None
         self.ranked_keys = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
+        print("Maximum metric value: ", self.max_metric_val)
 
         global pysat_propagate_obj
         pysat_propagate_obj = pysat_propagate
@@ -41,7 +42,7 @@ class BoardMode0(Board):
         cnf_obj = cnf
 
     def __str__(self):
-        return f"Board- res: {self.res}, step: {self.step}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
+        return f"Board- res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
         return self.res is None and (self.len_asgn_edge_vars >= self.args.VARS_ELIMINATED or self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
@@ -60,7 +61,7 @@ class BoardMode0(Board):
             self.res = 0
 
         sorted_march_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
-        march_pos_lit_score_dict = dict(sorted_march_items) # dict(sorted_march_items[:3])
+        march_pos_lit_score_dict = dict(sorted_march_items[:3])
 
         valid_pos_literals = list(march_pos_lit_score_dict.keys())
         valid_neg_literals = [-l for l in valid_pos_literals]
@@ -83,6 +84,9 @@ class BoardMode0(Board):
 
         max_val = max(march_pos_lit_score_dict.values()) if len(march_pos_lit_score_dict) > 0 else 0
         wandb.log({"depth": self.step, "max_val": max_val})
+        # also log in a separate file
+        # with open("max_val.txt", "a") as f:
+        #     f.write(f"{self.step} {max_val}\n")
 
         self.valid_literals = valid_pos_literals + valid_neg_literals # both +ve and -ve literals
         self.prob = prob
@@ -114,7 +118,7 @@ class BoardMode0(Board):
         # collecting from the parent node's dict; TODO: not considering direction, so choosing the +ve one (abs)
         assert self.march_pos_lit_score_dict is not None
         self.current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
-        new_state.total_rew += self.current_metric_val # adding so that the leaves denote the total reward of the path
+        new_state.total_rew = self.current_metric_val # reward is proportional to the number of literals that are assigned (eval_var)
         new_state.calculate_march_metrics()
         if self.args.debugging: log.info(f"Calculated march metrics")
         return new_state
@@ -128,8 +132,8 @@ class BoardMode0(Board):
                 print("Exiting...")
                 exit(0)
                 # return self.total_rew + self.args.STEP_UPPER_BOUND
-            elif self.is_fail():
-                norm_rew = 1
+            elif self.is_fail(): 
+                norm_rew = -1 
             elif self.is_unknown(): # results in unknown using march_cu so heavily penalize and don't go down this path
                 norm_rew = -1
             elif self.is_giveup(): 
@@ -138,7 +142,10 @@ class BoardMode0(Board):
                 raise Exception("Unknown game state")
             
             if eval_cls:
-                return norm_rew * self.max_metric_val
+                if norm_rew > 0:
+                    return norm_rew * self.max_metric_val
+                else:
+                    return norm_rew
             else:
                 wandb.log({"depth": self.step, "norm_rew": norm_rew})
                 return norm_rew
