@@ -13,3 +13,9 @@ checkpoints/
 
 # Project specific
 wandb/
+*.simp
+*.cnf
+*.cubes
+*.pkl
+*.out
+arena_cubes.txt
