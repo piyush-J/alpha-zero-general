@@ -137,12 +137,11 @@ class MCTS():
                 # Steps in MCTS: selection, expansion, simulation, backpropagation
                 # Value of the initial state = same as simulating a rollout from the initial state = avg (expectation of rew) of the metric dict * STEP_UPPER_BOUND
                 # For other intermediate steps = current average reward + (avg of the metric dict * remaining steps)
-                remaining_depth = self.args.STEP_UPPER_BOUND - canonicalBoard.step
-                assert remaining_depth >= 0
-                values_metric_dict = canonicalBoard.march_pos_lit_score_dict.values()
-                assert len(values_metric_dict) > 0
-                average_metric_dict = sum(values_metric_dict) / len(values_metric_dict)
-                v = canonicalBoard.total_rew + remaining_depth * average_metric_dict
+                remaining_vars = self.args.VARS_ELIMINATED - canonicalBoard.len_asgn_edge_vars
+                if remaining_vars < 0: remaining_vars = 0 # clip to 0
+                # this is a guaranteed lower-bound increase in the number of vars eliminated 
+                # because of the l * r + l + r term in the metric vis-a-vis the termination criteria
+                v = canonicalBoard.total_rew + (remaining_vars**2)/(self.args.VARS_ELIMINATED**2) # eval_var is a quadratic increase in the vars eliminated because of the l * r + l + r term
                 self.Ps[s] = canonicalBoard.prob
             else:
                 self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
@@ -175,12 +174,12 @@ class MCTS():
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                             1 + self.Nsa[(s, a)])
-                    # print(f"a: {a}, u: {u:.6f}, self.Qsa[(s, a)]: {self.Qsa[(s, a)]:.4f}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)]):.6f}")
+                    print(f"a: {a}, u: {u:.6f}, self.Qsa[(s, a)]: {self.Qsa[(s, a)]:.4f}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)]):.6f}")
                     
                 else:
                     # assert self.Ns[s] == 0, f"self.Ns[s] = {self.Ns[s]} for s = {s}, a = {a}, canonicalBoard = {canonicalBoard}"
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
-                    # print(f"a: {a}, u: {u}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s] + EPS)}")
+                    print(f"a: {a}, u: {u}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s] + EPS)}")
 
                 if u > cur_best:
                     cur_best = u
@@ -188,14 +187,14 @@ class MCTS():
 
                 all_u[a] = u
 
-        # print("Canonical board march metrics:")
+        print("Canonical board march metrics:")
         sorted_march_items = sorted(canonicalBoard.march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
-        # for k, v in sorted_march_items[:5]:
-        #     print(f"{k}: {v}")
-        # print("Canonical board best u vals:")
+        for k, v in sorted_march_items[:5]:
+            print(f"{k}: {v}")
+        print("Canonical board best u vals:")
         sorted_u_items = sorted(all_u.items(), key=lambda x:x[1], reverse=True)
-        # for k, v in sorted_u_items[:5]:
-        #     print(f"{k}: {v}")
+        for k, v in sorted_u_items[:5]:
+            print(f"{k}: {v}")
 
         a = best_act
 
@@ -231,8 +230,9 @@ class MCTS():
 
         v1 = self.search(game_copy_dir1, next_s_dir1, level=level+1)
         v2 = self.search(game_copy_dir2, next_s_dir2, level=level+1)
-        v = (v1 + v2)/2 # average reward of the two children
+        v = (v1 + v2)/2 #- 0.2*(abs(v1-v2)) # average reward of the two children - penalize if the rewards are very different
         # the 2 children already have the reward which is the sum along the path, so the parent should have the average
+        # if one of them got unsat, the reward would be lower
 
         if (s, a) in self.Qsa: # using (s,a) from the positive-dir of a
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
