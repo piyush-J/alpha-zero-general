@@ -12,11 +12,13 @@ from utils import *
 
 import wandb
 
+import argparse
+
 log = logging.getLogger(__name__)
 
 coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
-args = dotdict({
+args_f = {
     'numIters': 1,           # TODO: Change this to 1000
     'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 5,        #
@@ -44,16 +46,23 @@ args = dotdict({
     'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
     'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
 
-    'order': 18,
-    'MAX_LITERALS': 18*17//2,
+    # 'order': 18,
+    # 'MAX_LITERALS': 18*17//2,
     'STATE_SIZE': 10,
-    'STEP_UPPER_BOUND': 20, # max depth of CnC
-    'VARS_ELIMINATED': 20, # max number of vars to be eliminated
+    # 'STEP_UPPER_BOUND': 20, # max depth of CnC
+    # 'VARS_ELIMINATED': 20, # max number of vars to be eliminated
     'STEP_UPPER_BOUND_MCTS': 5 # max depth of MCTS
-})
+}
 
 
-def main():
+def main(args_parsed):
+    args = dotdict({**args_f, **vars(args_parsed)})
+
+    args['VARS_ELIMINATED'] = args_parsed.n
+    args['STEP_UPPER_BOUND'] = args_parsed.n
+    args['MAX_LITERALS'] = args_parsed.m
+
+    print(args)
 
     # wandb login
 
@@ -71,7 +80,7 @@ def main():
     wandb.config.update(args)
 
     log.info(f'Loading {KSGame.__name__}...')
-    g = KSGame(args=args, filename="constraints_18_c_100000_2_2_0_final.simp") 
+    g = KSGame(args=args, filename=args.filename) 
     log.info('Loading %s...', ksnn.__name__)
     nnet = ksnn(g)
 
@@ -97,7 +106,7 @@ def main():
     # else ---
     c.learn()
 
-    wandb.save('arena_cubes.txt')
+    # wandb.save('arena_cubes.txt')
     wandb.save('tmp.cnf')
     wandb.save('tmp.cubes')
     wandb.save('trainExamples.pkl')
@@ -146,4 +155,15 @@ def main():
         # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
 
 if __name__ == "__main__":
-    main()
+    # python -u main.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_def.cubes"
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename", help="filename of the CNF file", type=str)
+    parser.add_argument("-order", help="KS order", type=int)
+    parser.add_argument("-n", help="cutoff when n variables are eliminated", type=int)
+    # parser.add_argument("-d", help="cutoff when d depth is reached", type=int)
+    parser.add_argument("-m", help="only top m variables to be considered for cubing", type=int)
+    parser.add_argument("-o", help="output file for cubes")
+    args_parsed = parser.parse_args()
+
+    main(args_parsed)

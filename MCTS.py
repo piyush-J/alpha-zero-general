@@ -52,7 +52,10 @@ class MCTS():
 
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
-        print("Non zero elements in counts: ", [(ind_, elem) for ind_, elem in enumerate(counts) if elem != 0])
+        non_zero_elems = [(ind_, elem) for ind_, elem in enumerate(counts) if elem != 0]
+        print("Non zero elements in counts: ", non_zero_elems)
+        if len(non_zero_elems) == 2:
+            log.warning("NO EXPLORATION!!!!")
 
         if temp == 0:
             bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()

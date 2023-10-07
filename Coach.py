@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import sys
+import time
 from collections import deque
 from pickle import Pickler, Unpickler
 from random import shuffle
@@ -100,6 +101,7 @@ class Coach():
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
+        start_time = time.time()
         trainExamples = []
         all_cubes = []
         game = self.game.get_copy()
@@ -108,11 +110,14 @@ class Coach():
         self.leaf_counter = 0
         r = self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
 
+        time_elapsed = time.time() - start_time
+        print("Time elapsed: ", round(time_elapsed, 3))
+
         if self.args.MCTSmode == 0:
             arena_cubes = [list(map(str, l)) for l in all_cubes]
-            if os.path.exists("arena_cubes.txt"):
-                log.info("arena_cubes.txt already exists. Replacing old file!")
-            f = open("arena_cubes.txt", "w")
+            if os.path.exists(self.args.o):
+                log.info(f"{self.args.o} already exists. Replacing old file!")
+            f = open(self.args.o, "w")
             f.writelines(["a " + " ".join(l) + " 0\n" for l in arena_cubes])
             f.close()
 
