@@ -24,9 +24,9 @@ args_f = {
     'tempThreshold': 5,        #
     'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-    'numMCTSSims': 20,          # Number of games moves for MCTS to simulate.
+    # 'numMCTSSims': 300,          # Number of games moves for MCTS to simulate.
     'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
-    'cpuct': 10,                 # controls the amount of exploration; keeping high for MCTSmode 0
+    # 'cpuct': 0.1,                 # controls the amount of exploration; keeping high for MCTSmode 0
 
     'checkpoint': './temp/',
     'load_model': False,
@@ -51,7 +51,9 @@ args_f = {
     'STATE_SIZE': 10,
     # 'STEP_UPPER_BOUND': 20, # max depth of CnC
     # 'VARS_ELIMINATED': 20, # max number of vars to be eliminated
-    'STEP_UPPER_BOUND_MCTS': 5 # max depth of MCTS
+    'STEP_UPPER_BOUND_MCTS': 20, # max depth of MCTS
+
+    'LIMIT_TOP_3': True
 }
 
 
@@ -155,7 +157,8 @@ def main(args_parsed):
         # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
 
 if __name__ == "__main__":
-    # python -u main.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_def.cubes"
+    # python -u main.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 3 -varpen 0.1 > cubing_outputs/e4_18_mcts_best_varpen.out 2>&1
+    # python -u main.py "constraints_19_c_100000_2_2_0_final.simp" -order 19 -n 20 -m 171 -o "e4_19_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 0.5 -varpen 0.1 > cubing_outputs/e4_19_mcts_best_varpen.out 2>&1
 
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", help="filename of the CNF file", type=str)
@@ -164,6 +167,12 @@ if __name__ == "__main__":
     # parser.add_argument("-d", help="cutoff when d depth is reached", type=int)
     parser.add_argument("-m", help="only top m variables to be considered for cubing", type=int)
     parser.add_argument("-o", help="output file for cubes")
+    
+    parser.add_argument("-cpuct", help="cpuct for MCTS", type=float)
+    parser.add_argument("-numMCTSSims", help="MCTS sims", type=int)
+    parser.add_argument("-varpen", help="Variance penalty factor", type=float)
+
     args_parsed = parser.parse_args()
+    print(args_parsed)
 
     main(args_parsed)
