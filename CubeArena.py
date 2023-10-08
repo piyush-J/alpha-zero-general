@@ -1,3 +1,4 @@
+import argparse
 import itertools
 import logging
 import coloredlogs
@@ -211,44 +212,31 @@ class CubeArena():
         self.playGame(list_of_cubes)
 
 if __name__ == '__main__':
-    args = dotdict({
-        'numIters': 1,           # TODO: Change this to 1000
-        'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
-        'tempThreshold': 5,        #
-        'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
-        'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-        'numMCTSSims': 20,          # Number of games moves for MCTS to simulate.
-        'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
-        'cpuct': 10,                 # controls the amount of exploration; keeping high for MCTSmode 0
-
-        'checkpoint': './temp/',
-        'load_model': False,
-        'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
-        'numItersForTrainExamplesHistory': 20,
-
-        'CCenv': True,
-        'model_name': 'MCTS',
-        'model_notes': 'MCTS without NN',
-        'model_mode': 'mode-0',
-        'phase': 'scaling',
-        'version': 'v1',
-
-        'debugging': False,
-        'wandb_logging': False,
-
-        'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
-        'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
-
-        'order': 19,
-        'MAX_LITERALS': 19*18//2,
-        'STATE_SIZE': 10,
-        'STEP_UPPER_BOUND': 20, # max depth of CnC
-        'VARS_ELIMINATED': 20, # max number of vars to be eliminated
-        'STEP_UPPER_BOUND_MCTS': 10 # max depth of MCTS
-    })
+    # python -u CubeArena.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_nod_s300_c05.cubes"
 
     wandb.init(mode="disabled")
 
-    game = KSGame(args=args, filename="constraints_19_c_100000_2_2_0_final.simp") 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename", help="filename of the CNF file", type=str)
+    parser.add_argument("-order", help="KS order", type=int)
+    parser.add_argument("-n", help="cutoff when n variables are eliminated", type=int)
+    # parser.add_argument("-d", help="cutoff when d depth is reached", type=int)
+    parser.add_argument("-m", help="only top m variables to be considered for cubing", type=int)
+    parser.add_argument("-o", help="cube file")
+    args_parsed = parser.parse_args()
 
-    CubeArena(agent1=None, game=game, cubefile='e4_19_mcts_varmdef.cubes').runSimulation()
+    args = dotdict({**vars(args_parsed)})
+
+    args['VARS_ELIMINATED'] = args_parsed.n
+    args['STEP_UPPER_BOUND'] = args_parsed.n
+    args['MAX_LITERALS'] = args_parsed.m
+    args['STATE_SIZE'] = 10
+    args['STEP_UPPER_BOUND_MCTS'] = 20
+    args['MCTSmode'] = 0
+    args['debugging'] = False
+    args['wandb_logging'] = False
+    args['LIMIT_TOP_3'] = False
+
+    game = KSGame(args=args, filename=args.filename) 
+
+    CubeArena(agent1=None, game=game, cubefile=args.o).runSimulation()
