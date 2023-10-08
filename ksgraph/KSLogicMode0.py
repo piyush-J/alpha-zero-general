@@ -61,7 +61,10 @@ class BoardMode0(Board):
             self.res = 0
 
         sorted_march_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
-        march_pos_lit_score_dict = dict(sorted_march_items[:3])
+        if self.args.LIMIT_TOP_3:
+            march_pos_lit_score_dict = dict(sorted_march_items[:3])
+        else: # required for CubeArena
+            march_pos_lit_score_dict = dict(sorted_march_items)
 
         valid_pos_literals = list(march_pos_lit_score_dict.keys())
         valid_neg_literals = [-l for l in valid_pos_literals]

@@ -56,6 +56,10 @@ class MCTS():
         print("Non zero elements in counts: ", non_zero_elems)
         if len(non_zero_elems) == 2:
             log.warning("NO EXPLORATION!!!!")
+        
+        # open a file to write the counts
+        with open(f"cubing_outputs/counts_{self.args.o}.txt", "a") as f:
+            f.write(f"{non_zero_elems}\n")
 
         if temp == 0:
             bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
@@ -233,7 +237,7 @@ class MCTS():
 
         v1 = self.search(game_copy_dir1, next_s_dir1, level=level+1)
         v2 = self.search(game_copy_dir2, next_s_dir2, level=level+1)
-        v = (v1 + v2)/2 #- 0.2*(abs(v1-v2)) # average reward of the two children - penalize if the rewards are very different
+        v = (v1 + v2)/2 - self.args.varpen*(abs(v1-v2)) # average reward of the two children - penalize if the rewards are very different
         # the 2 children already have the reward which is the sum along the path, so the parent should have the average
         # if one of them got unsat, the reward would be lower
 
