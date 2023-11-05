@@ -69,16 +69,30 @@ class Coach():
         if self.args.debugging: 
             print(f"a: {a}, board.var2lits[a]: {board.var2lits[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
             print("Board: ", board)
-        march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
+        try: 
+            march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
+        except Exception as e: # debug based on file (e4_20_mcts_nod_s300_c3_pen02-cdr1138-14664123.out) in Debug dir in Git Large Files
+            march_rank = -1
+            print("Exception: ", e)
+            print("board.valid_literals: ", board.valid_literals, board.march_pos_lit_score_dict)
         if self.args.debugging: 
             log.info(f"DFS best action is {a} with rank {march_rank}, pi = {pi[a]:.3f}, max pi value {max(pi):.3f}, same pi count = {sum(np.array(pi) == pi[a])}")
         wandb.log({"march_rank": march_rank})
-        game_copy_dir1 = game.get_copy()
-        next_s_dir1 = game_copy_dir1.getNextState(board, a)
 
-        comp_a = board.get_complement_action(a) # complement of the literal
+        log.info("Using cached data")
+        s = game.stringRepresentation(board)
+        comp_a = board.get_complement_action(a)
+        (next_s_dir1, board) = self.mcts.cache_data[(s, a)]
+        (next_s_dir2, board) = self.mcts.cache_data[(s, comp_a)]
+        game_copy_dir1 = game.get_copy()
         game_copy_dir2 = game.get_copy()
-        next_s_dir2 = game_copy_dir2.getNextState(board, comp_a)
+
+        # game_copy_dir1 = game.get_copy()
+        # next_s_dir1 = game_copy_dir1.getNextState(board, a)
+
+        # comp_a = board.get_complement_action(a) # complement of the literal
+        # game_copy_dir2 = game.get_copy()
+        # next_s_dir2 = game_copy_dir2.getNextState(board, comp_a)
 
         assert valids[a] and valids[comp_a], "Invalid action chosen by MCTS"
 
