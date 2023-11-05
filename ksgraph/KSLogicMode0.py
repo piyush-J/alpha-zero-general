@@ -56,10 +56,11 @@ class BoardMode0(Board):
         res, len_asgn_edge_vars, march_pos_lit_score_dict_all = pysat_propagate_obj.propagate(Node(prior_actions_flat))
         # print(res, march_pos_lit_score_dict)
 
-        self.len_asgn_edge_vars = len_asgn_edge_vars 
+        if res == 0: # refuted node
+            self.res = 0 
+            # len_asgn_edge_vars = self.args.VARS_ELIMINATED
 
-        if res == 0:
-            self.res = 0
+        self.len_asgn_edge_vars = len_asgn_edge_vars
 
         sorted_march_items = sorted(march_pos_lit_score_dict_all.items(), key=lambda x:x[1], reverse=True)
         self.top_five_kv_sorted = dict(sorted_march_items[:5])

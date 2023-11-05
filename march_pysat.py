@@ -10,8 +10,9 @@ import time
 
 class Node():
 
-    def __init__(self, prior_actions=[]) -> None:
+    def __init__(self, prior_actions=[], unsat_learnt_actions=[]) -> None:
         self.prior_actions = prior_actions # list of literals
+        self.unsat_learnt_actions = unsat_learnt_actions # list of literals whose negation leads to UNSAT in the next step
         self.reward = None # only for terminal nodes
         # self.best_var_rew = 0 # found via propagation on the parent node, the best variable has been added to prior_actions
 
@@ -34,20 +35,25 @@ class Node():
         return self.next_best_var
 
     def get_next_node(self, var):
-        return Node(self.prior_actions+[var])
+        return Node(self.prior_actions+[var], self.unsat_learnt_actions[:])
 
     def valid_cubing_lits(self, literals_all): 
         negated_prior_actions = [-l for l in self.prior_actions]
-        return list(set(literals_all) - set(self.prior_actions) - set(negated_prior_actions))
+        negated_unsat_learnt_actions = [-l for l in self.unsat_learnt_actions]
+        return list(set(literals_all) - set(self.prior_actions) - set(negated_prior_actions) - set(self.unsat_learnt_actions) - set(negated_unsat_learnt_actions))
 
 
 class MarchPysat():
 
-    def __init__(self, filename="constraints_20_c_100000_2_2_0_final.simp", solver_name="minisat22", n=None, d=None, m=None, o=None) -> None:
+    def __init__(self, filename="constraints_20_c_100000_2_2_0_final.simp", solver_name="minisat22", recomp=-1, all_cubes=0, n=None, d=None, m=None, o=None) -> None:
         self.filename = filename
         self.cnf = CNF(from_file=self.filename)
         self.nv = self.cnf.nv
         self.solver = Solver(name=solver_name, bootstrap_with=self.cnf)
+        self.all_cubes = all_cubes
+        self.recomputation_limit = recomp # recomputation limit
+        if self.recomputation_limit == -1: 
+            self.recomputation_limit = self.nv # upper bound on the number of recomputations
         self.n = n # cutoff when n variables are eliminated
         self.d = d # cutoff when d depth is reached
         self.m = m # only top m variables to be considered for cubing
@@ -74,8 +80,12 @@ class MarchPysat():
         self.node_count += 1
 
         if node.is_terminal(): 
-            if not node.is_refuted(): # if UNSAT, skip cube
+            # print("Leaf: ", node.prior_actions, "len: ", len(node.prior_actions), "not node.is_refuted(): ", not node.is_refuted())
+            if self.all_cubes:
                 all_cubes.append(node.prior_actions)
+            else:
+                if not node.is_refuted(): # if UNSAT, skip cube
+                    all_cubes.append(node.prior_actions)
             return node.reward
         
         reward_now = 0
@@ -96,11 +106,12 @@ class MarchPysat():
 
     def propagate(self, node):
 
-        out1 = self.solver.propagate(assumptions=node.prior_actions)
+        out1 = self.solver.propagate(assumptions=node.prior_actions+node.unsat_learnt_actions)
         assert out1 is not None
         not_unsat1, asgn1 = out1
         len_asgn_edge_vars = len(set(asgn1).intersection(set(self.literals_all))) # number of assigned edge variables
 
+        # print(f"Node: {node.prior_actions} with {len_asgn_edge_vars} assigned edge variables and {len(set(asgn1+node.prior_actions+node.unsat_learnt_actions).intersection(set(self.literals_all)))} all assigned vars") #; node.prior_actions+node.unsat_learnt_actions = {node.prior_actions+node.unsat_learnt_actions}; out1 = {out1}")
         # check for cutoff
         if (self.n is not None and len_asgn_edge_vars >= self.n) or (self.d is not None and len(node.prior_actions) >= self.d):
             node.cutoff = True
@@ -116,17 +127,37 @@ class MarchPysat():
             return
         else:
             node.refuted = False
-        
-        all_lit_rew = {}
-        all_var_rew = {}
-        valid_cubing_lits = node.valid_cubing_lits(self.literals_all)
 
-        for literal in valid_cubing_lits:
-            assert literal not in node.prior_actions, "Duplicate literals in the list"
-            out = self.solver.propagate(assumptions=node.prior_actions+[literal])
-            assert out is not None
-            _, asgn = out
-            all_lit_rew[literal] = len(asgn)
+        recomputation_counter = 0
+        
+        while True:
+            unsat_flag = False
+            all_lit_rew = {}
+            all_var_rew = {}
+            valid_cubing_lits = node.valid_cubing_lits(self.literals_all)
+
+            for literal in valid_cubing_lits:
+                assert literal not in node.prior_actions+node.unsat_learnt_actions, "Duplicate literals in the list"
+                out = self.solver.propagate(assumptions=node.prior_actions+node.unsat_learnt_actions+[literal])
+                assert out is not None
+                not_unsat2, asgn = out
+                if not not_unsat2 and recomputation_counter < self.recomputation_limit: # recompute if unsat and recomputation limit not reached
+                    unsat_literal = literal
+                    node.unsat_learnt_actions.append(-unsat_literal) # add the negation of the unsat literal to the learnt actions
+                    unsat_flag = True
+                    recomputation_counter += 1
+                    break
+
+                all_lit_rew[literal] = len(set(asgn).intersection(set(self.literals_all)))
+
+            if not unsat_flag: # no refutation found
+                break
+        
+        if len(all_lit_rew) == 0:
+            node.cutoff = True
+            node.reward = 1.0 # no valid cubing literals found, so reward is max
+            # print(f"Node: {node.prior_actions} - no valid cubing literals found, so reward is max")
+            return
 
         # combine the rewards of the positive and negative literals
         for literal in valid_cubing_lits:
@@ -135,6 +166,7 @@ class MarchPysat():
 
         # get the key (var) of the best value (eval_var)
         node.next_best_var = max(all_var_rew.items(), key=operator.itemgetter(1))[0]
+        return
 
         # node.next_best_var_rew = all_var_rew[node.next_best_var]
         # node.all_var_rew = all_var_rew
@@ -160,16 +192,18 @@ class MarchPysat():
         print("Time taken for cubing: ", round(time.time() - start_time, 3))
         print("Number of nodes: ", self.node_count)
 
-# python march_pysat.py "constraints_18_c_100000_2_2_0_final.simp" -n 20 -m 153 -o "out1.cubes"
+# python march_pysat_m_unsatrecomp.py "constraints_19_c_100000_2_2_0_final.simp" -n 20 -m 171 -o "e4_19_pysat_unsat.cubes"
 if __name__ == "__main__":
     st = time.time()
 
-    # march_pysat = MarchPysat(filename="constraints_20_c_100000_2_2_0_final.simp", n=40, d=10, m=190)
+    # march_pysat = MarchPysat(filename="constraints_18_c_100000_2_2_0_final.simp", n=80, m=153)
     # march_pysat.run_cnc()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", help="filename of the CNF file", type=str)
     parser.add_argument("-solver_name", help="solver name", default="minisat22")
+    parser.add_argument("-recomp", help="recomputation_limit", type=int, default=-1)
+    parser.add_argument("-all_cubes", help="get all cubes?", type=int, default=1)
     parser.add_argument("-n", help="cutoff when n variables are eliminated", type=int)
     parser.add_argument("-d", help="cutoff when d depth is reached", type=int)
     parser.add_argument("-m", help="only top m variables to be considered for cubing", type=int)
@@ -178,7 +212,15 @@ if __name__ == "__main__":
 
     print(args)
 
-    march_pysat = MarchPysat(filename=args.filename, solver_name=args.solver_name, n=args.n, d=args.d, m=args.m, o=args.o)
+    march_pysat = MarchPysat(filename=args.filename, solver_name=args.solver_name, recomp=args.recomp, all_cubes=args.all_cubes, n=args.n, d=args.d, m=args.m, o=args.o)
     march_pysat.run_cnc()
 
     print("Tool runtime: ", round(time.time() - st, 3))
+
+# Notes:
+# Keeping all_cubes at 1, so all unsat nodes are intact
+# Keeping recomputation_limit at -1
+# Pysat includes prior actions while metric calc
+# Metric is 0 for those literals which lead to unsat
+# UNSAT rew = 1 (during rew calc, not mcts search process)
+
