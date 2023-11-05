@@ -121,7 +121,140 @@
 #                         title="Histogram")})
 
 
-from march_pysat import MarchPysat, Node
+# from march_pysat import MarchPysat, Node
 
-march_pysat = MarchPysat(filename="constraints_17_c_100000_2_2_0_final.simp", m=136)
-march_pysat.run_cnc()
+# march_pysat = MarchPysat(filename="constraints_17_c_100000_2_2_0_final.simp", m=136)
+# march_pysat.run_cnc()
+
+import copy
+import argparse
+import itertools
+import operator
+import os
+import pickle
+from pysat.solvers import Solver
+from pysat.formula import CNF
+import time
+
+prior_actions=[-67, 106, -111, 68, -79, 125, 31, -60]
+
+filename="constraints_20_c_100000_2_2_0_final.simp"
+m=190
+solver_name="minisat22"
+filename = filename
+cnf = CNF(from_file=filename)
+solver = Solver(name=solver_name, bootstrap_with=cnf)
+
+literals_pos = list(range(1, m+1))
+literals_neg = [-l for l in literals_pos]
+literals_all = literals_pos + literals_neg
+negated_prior_actions = [-l for l in prior_actions]
+valid_cubing_lits = list(set(literals_all) - set(prior_actions) - set(negated_prior_actions))
+
+all_lit_rew = {}
+all_var_rew = {}
+
+for literal in valid_cubing_lits:
+    assert literal not in prior_actions, "Duplicate literals in the list"
+    out = solver.propagate(assumptions=prior_actions+[literal])
+    assert out is not None
+    _, asgn = out
+    all_lit_rew[literal] = len(set(asgn).intersection(set(literals_all)))
+    # print(prior_actions+[literal], ": ", asgn)
+    # print([True for l in prior_actions+[literal] if l in asgn])
+
+# combine the rewards of the positive and negative literals
+for literal in valid_cubing_lits:
+    if literal > 0:
+        all_var_rew[literal] = (all_lit_rew[literal] * all_lit_rew[-literal]) + all_lit_rew[literal] + all_lit_rew[-literal]
+
+print(all_var_rew)
+sorted_march_items = sorted(all_var_rew.items(), key=lambda x:x[1], reverse=True)
+print(dict(sorted_march_items[:5]))
+
+# create a 3D scatter plot of this formula x * y + x + y
+
+# def f(x, y):
+#     return x * y + x + y
+
+# import matplotlib.pyplot as plt
+# import numpy as np
+
+# x = np.linspace(-10, 10, 100)
+# y = np.linspace(-10, 10, 100)
+
+# X, Y = np.meshgrid(x, y)
+# Z = f(X, Y)
+
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# ax.contour3D(X, Y, Z, 50, cmap='binary')
+# ax.set_xlabel('x')
+# ax.set_ylabel('y')
+# ax.set_zlabel('z')
+# plt.show()
+
+# import numpy as np
+
+# # Create a range of variances for x and y
+# variances_x = np.linspace(1, 5, 100)
+# variances_y = np.linspace(1, 5, 100)
+
+# # Initialize arrays to store the results
+# z_values = []
+
+# # Generate datasets with varying variances and calculate z
+# for var_x, var_y in zip(variances_x, variances_y):
+#     x = var_x
+#     y = var_y
+#     z = x * y + x + y
+#     z_values.append(z)
+
+# # Plot the relationship between variances and z values
+# import matplotlib.pyplot as plt
+
+# plt.plot(variances_x, z_values, label="Variance of x vs. Mean of z")
+# plt.xlabel("Variance of x")
+# plt.ylabel("Mean of z")
+# plt.legend()
+# plt.show()
+
+# import numpy as np
+# import matplotlib.pyplot as plt
+
+# # Create lists of x and y values
+# x = list(range(1, 101))
+# y = list(range(1, 101))
+
+# # Initialize lists to store variances and z values
+# variances = []
+# z_values = []
+
+# # Calculate variances and z values for all combinations of x and y
+# for x_val in x:
+#     for y_val in y:
+#         var_x = np.var([x_val, y_val])
+#         z_val = x_val * y_val + x_val + y_val
+#         variances.append(var_x)
+#         z_values.append(z_val)
+
+# # Create a scatter plot of variances vs. z values
+# plt.scatter(variances, z_values, c=z_values, cmap='viridis')
+# plt.xlabel('Variance of x and y')
+# plt.ylabel('z Value')
+# plt.title('Variance of x and y vs. z Value')
+# plt.colorbar(label='z Value')
+# plt.show()
+
+# def func_mod(a, b, c):
+#     a.append(1)
+#     b.append(2)
+#     c.append(3)
+#     print(a, b, c)
+
+# a = [1,2,3]
+# b = [4,5,6]
+# c = [7,8,9]
+
+# func_mod(a, b+[0], c[:])
+# print(a, b, c)
