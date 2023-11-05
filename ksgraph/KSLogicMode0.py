@@ -32,6 +32,7 @@ class BoardMode0(Board):
         self.len_asgn_edge_vars = None
         self.current_metric_val = None
         self.ranked_keys = None
+        self.top_five_kv_sorted = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
         print("Maximum metric value: ", self.max_metric_val)
 
@@ -42,7 +43,7 @@ class BoardMode0(Board):
         cnf_obj = cnf
 
     def __str__(self):
-        return f"Board- res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
+        return f"Board- res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}, ranked_keys: {self.ranked_keys}, top_five_kv_sorted: {self.top_five_kv_sorted}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
         return self.res is None and (self.len_asgn_edge_vars >= self.args.VARS_ELIMINATED or self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
@@ -52,7 +53,7 @@ class BoardMode0(Board):
         edge_vars = self.order*(self.order-1)//2 
         assert pysat_propagate_obj is not None
         prior_actions_flat = list(itertools.chain.from_iterable(self.prior_actions))
-        res, len_asgn_edge_vars, march_pos_lit_score_dict = pysat_propagate_obj.propagate(Node(prior_actions_flat))
+        res, len_asgn_edge_vars, march_pos_lit_score_dict_all = pysat_propagate_obj.propagate(Node(prior_actions_flat))
         # print(res, march_pos_lit_score_dict)
 
         self.len_asgn_edge_vars = len_asgn_edge_vars 
@@ -60,7 +61,8 @@ class BoardMode0(Board):
         if res == 0:
             self.res = 0
 
-        sorted_march_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
+        sorted_march_items = sorted(march_pos_lit_score_dict_all.items(), key=lambda x:x[1], reverse=True)
+        self.top_five_kv_sorted = dict(sorted_march_items[:5])
         if self.args.LIMIT_TOP_3:
             march_pos_lit_score_dict = dict(sorted_march_items[:3])
         else: # required for CubeArena
@@ -85,6 +87,10 @@ class BoardMode0(Board):
         for k in march_pos_lit_score_dict.keys():
             march_pos_lit_score_dict[k] /= self.max_metric_val
 
+        # normalize the values of the march_pos_lit_score_dict_all
+        for k in march_pos_lit_score_dict_all.keys():
+            march_pos_lit_score_dict_all[k] /= self.max_metric_val
+        
         max_val = max(march_pos_lit_score_dict.values()) if len(march_pos_lit_score_dict) > 0 else 0
         wandb.log({"depth": self.step, "max_val": max_val})
         # also log in a separate file
@@ -94,6 +100,7 @@ class BoardMode0(Board):
         self.valid_literals = valid_pos_literals + valid_neg_literals # both +ve and -ve literals
         self.prob = prob
         self.march_pos_lit_score_dict = march_pos_lit_score_dict
+        self.march_pos_lit_score_dict_all = march_pos_lit_score_dict_all
         sorted_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
         self.ranked_keys = [k for k,v in sorted_items]
     
@@ -113,6 +120,8 @@ class BoardMode0(Board):
         new_state.march_pos_lit_score_dict = None
         new_state.current_metric_val = None
         new_state.ranked_keys = None
+        new_state.len_asgn_edge_vars = None
+        new_state.top_five_kv_sorted = None
 
         new_state.step += 1
         chosen_literal = [new_state.var2lits[action]]
@@ -120,7 +129,10 @@ class BoardMode0(Board):
         # new_state.cnf.append(chosen_literal) # append to the cnf object
         # collecting from the parent node's dict; TODO: not considering direction, so choosing the +ve one (abs)
         assert self.march_pos_lit_score_dict is not None
-        self.current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
+        try:
+            self.current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
+        except KeyError:
+            self.current_metric_val = self.march_pos_lit_score_dict_all[abs(chosen_literal[0])]
         new_state.total_rew = self.current_metric_val # reward is proportional to the number of literals that are assigned (eval_var)
         new_state.calculate_march_metrics()
         if self.args.debugging: log.info(f"Calculated march metrics")
