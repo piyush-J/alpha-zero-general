@@ -42,12 +42,13 @@ class MCTS():
         """
         canonicalBoard = game.getCanonicalForm(board)
 
+        # Getting % usage of virtual_memory ( 3rd field)
+        print('RAM memory % used:', psutil.virtual_memory()[2])
+        # Getting usage of virtual_memory in GB ( 4th field)
+        print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
+
         for _ in range(self.args.numMCTSSims):
             if self.args.debugging: log.info("MCTS Simulation #{}".format(_))
-            # Getting % usage of virtual_memory ( 3rd field)
-            print('RAM memory % used:', psutil.virtual_memory()[2])
-            # Getting usage of virtual_memory in GB ( 4th field)
-            print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
             self.search(game, canonicalBoard, verbose=verbose)
 
         s = game.stringRepresentation(canonicalBoard)
@@ -140,7 +141,8 @@ class MCTS():
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
             if self.args.MCTSmode == 0 or (self.args.MCTSmode != 0 and self.nn_iteration < self.args.nn_iter_threshold):
-                log.info("Using heuristic tree search without NN")
+                if self.args.debugging:
+                    log.info("Using heuristic tree search without NN")
                 # Steps in MCTS: selection, expansion, simulation, backpropagation
                 # Value of the initial state = same as simulating a rollout from the initial state = avg (expectation of rew) of the metric dict * STEP_UPPER_BOUND
                 # For other intermediate steps = current average reward + (avg of the metric dict * remaining steps)
@@ -226,11 +228,13 @@ class MCTS():
             game_copy_dir2 = game.get_copy()
             next_s_dir2 = game_copy_dir2.getNextState(canonicalBoard, comp_a)
 
-            log.info("Cache new data")
+            if self.args.debugging:
+                log.info("Cache new data")
             self.cache_data[(s, a)] = (next_s_dir1, canonicalBoard)
             self.cache_data[(s, comp_a)] = (next_s_dir2, canonicalBoard)
         else:
-            log.info("Using cached data")
+            if self.args.debugging:
+                log.info("Using cached data")
             comp_a = canonicalBoard.get_complement_action(a)
             (next_s_dir1, canonicalBoard) = self.cache_data[(s, a)]
             (next_s_dir2, canonicalBoard) = self.cache_data[(s, comp_a)]

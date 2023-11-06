@@ -4,7 +4,9 @@ import operator
 
 class Node():
 
-    def __init__(self, prior_actions=[]) -> None:
+    def __init__(self, prior_actions=None) -> None:
+        if prior_actions is None:
+            prior_actions = []
         self.prior_actions = prior_actions # list of literals
         self.reward = None # only for terminal nodes
         # self.best_var_rew = 0 # found via propagation on the parent node, the best variable has been added to prior_actions

@@ -2,9 +2,13 @@ from pysat.solvers import Solver
 from pysat.formula import CNF
 import operator
 
-class Node():
+class Node:
 
-    def __init__(self, prior_actions=[], unsat_learnt_actions=[]) -> None:
+    def __init__(self, prior_actions=None, unsat_learnt_actions=None) -> None:
+        if prior_actions is None:
+            prior_actions = []
+        if unsat_learnt_actions is None:
+            unsat_learnt_actions = []
         self.prior_actions = prior_actions # list of literals
         self.unsat_learnt_actions = unsat_learnt_actions # list of literals whose negation leads to UNSAT in the next step
         self.reward = None # only for terminal nodes
@@ -16,6 +20,9 @@ class Node():
         self.next_best_var = None 
         # self.next_best_var_rew = None
         # self.all_var_rew = None
+
+    def __str__(self) -> str:
+        return f"Node: Prior actions: {self.prior_actions}, Unsat learnt actions: {self.unsat_learnt_actions}, Reward: {self.reward}, Cutoff: {self.cutoff}, Refuted: {self.refuted}, Next best var: {self.next_best_var}"
 
     def is_terminal(self):
         assert self.cutoff is not None and self.refuted is not None
@@ -37,7 +44,7 @@ class Node():
         return list(set(literals_all) - set(self.prior_actions) - set(negated_prior_actions) - set(self.unsat_learnt_actions) - set(negated_unsat_learnt_actions))
 
 
-class MarchPysatPropagate():
+class MarchPysatPropagate:
 
     def __init__(self, cnf, m) -> None:
         self.cnf = cnf

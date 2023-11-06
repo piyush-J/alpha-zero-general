@@ -50,12 +50,13 @@ class Coach():
         reward_now = game.getGameEnded(board)
         if reward_now: # reward is not None, i.e., game over
             flattened_list = itertools.chain.from_iterable(board.prior_actions)
-            if board.is_fail():
-                log.info("March said UNSAT --- skipping this cube (not adding to file)")
-            else:
-                all_cubes.append(flattened_list)
+            # if board.is_fail():
+            #     log.info("March said UNSAT --- skipping this cube (not adding to file)")
+            # else:
+            all_cubes.append(flattened_list) # adding all cubes
             self.leaf_counter += 1
-            if self.args.debugging: log.info(f"Leaf node: {self.leaf_counter} with reward = {reward_now} and state: {board}")
+            if self.args.debugging:
+                log.info(f"Leaf node: {self.leaf_counter} with reward = {reward_now} and state: {board}")
             return reward_now # only leaves have rewards & leaves don't have neighbors
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
@@ -79,7 +80,6 @@ class Coach():
             log.info(f"DFS best action is {a} with rank {march_rank}, pi = {pi[a]:.3f}, max pi value {max(pi):.3f}, same pi count = {sum(np.array(pi) == pi[a])}")
         wandb.log({"march_rank": march_rank})
 
-        log.info("Using cached data")
         s = game.stringRepresentation(board)
         comp_a = board.get_complement_action(a)
         (next_s_dir1, board) = self.mcts.cache_data[(s, a)]
