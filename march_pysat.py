@@ -10,7 +10,11 @@ import time
 
 class Node():
 
-    def __init__(self, prior_actions=[], unsat_learnt_actions=[]) -> None:
+    def __init__(self, prior_actions=None, unsat_learnt_actions=None) -> None:
+        if prior_actions is None: # https://docs.python.org/3/reference/compound_stmts.html#function-definitions
+            prior_actions = []
+        if unsat_learnt_actions is None:
+            unsat_learnt_actions = []
         self.prior_actions = prior_actions # list of literals
         self.unsat_learnt_actions = unsat_learnt_actions # list of literals whose negation leads to UNSAT in the next step
         self.reward = None # only for terminal nodes
@@ -192,7 +196,7 @@ class MarchPysat():
         print("Time taken for cubing: ", round(time.time() - start_time, 3))
         print("Number of nodes: ", self.node_count)
 
-# python march_pysat_m_unsatrecomp.py "constraints_19_c_100000_2_2_0_final.simp" -n 20 -m 171 -o "e4_19_pysat_unsat.cubes"
+# python march_pysat.py "constraints_19_c_100000_2_2_0_final.simp" -n 20 -m 171 -o "e4_19_debug.cubes"
 if __name__ == "__main__":
     st = time.time()
 
