@@ -61,8 +61,12 @@ class MarchPysatPropagate:
         self.literals_all = literals_pos + literals_neg
 
         self.node_count = 0
+        self.cached_unsat_learnt_actions = {}
 
     def propagate(self, node):
+
+        if tuple(node.prior_actions[:-1]) in self.cached_unsat_learnt_actions: # check if the parent node's unsat_learnt_actions are cached
+            node.unsat_learnt_actions = self.cached_unsat_learnt_actions[tuple(node.prior_actions[:-1])][:]
 
         out1 = self.solver.propagate(assumptions=node.prior_actions+node.unsat_learnt_actions)
         assert out1 is not None
@@ -101,6 +105,9 @@ class MarchPysatPropagate:
             if not unsat_flag: # no refutation found
                 break
         
+        if tuple(node.prior_actions) not in self.cached_unsat_learnt_actions:
+            self.cached_unsat_learnt_actions[tuple(node.prior_actions)] = node.unsat_learnt_actions[:]
+
         if len(all_lit_rew) == 0:
             node.cutoff = True
             node.reward = 1.0 # no valid cubing literals found, so reward is max
