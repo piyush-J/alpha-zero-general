@@ -3,6 +3,7 @@ import sys
 import time
 
 import numpy as np
+import random
 from tqdm import tqdm
 from ksgraph.KSLogic import Board
 
@@ -24,6 +25,9 @@ args = dotdict({
     'num_channels': 512,
     'embedding_size': 64,
 })
+
+random.seed(42)
+np.random.seed(42)
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game):
