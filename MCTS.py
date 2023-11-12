@@ -4,8 +4,11 @@ import math
 import numpy as np
 import psutil
 import wandb
+import random
 
 EPS = 1e-8
+random.seed(42)
+np.random.seed(42)
 
 log = logging.getLogger(__name__)
 

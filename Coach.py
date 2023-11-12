@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
 import wandb
+import random
 
 from Arena import PlanningArena
 from MCTS import MCTS
@@ -19,6 +20,8 @@ import itertools
 
 log = logging.getLogger(__name__)
 
+random.seed(42)
+np.random.seed(42)
 
 class Coach():
     """

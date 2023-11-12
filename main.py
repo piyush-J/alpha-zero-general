@@ -13,10 +13,15 @@ from utils import *
 import wandb
 
 import argparse
+import random
+import numpy as np
 
 log = logging.getLogger(__name__)
 
 coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
+
+random.seed(42)
+np.random.seed(42)
 
 args_f = {
     'numIters': 1,           # TODO: Change this to 1000
