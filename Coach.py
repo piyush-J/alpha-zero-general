@@ -125,7 +125,7 @@ class Coach():
         r = self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
 
         time_elapsed = time.time() - start_time
-        print("Time elapsed: ", round(time_elapsed, 3))
+        print("Time taken for cubing: ", round(time_elapsed, 3))
 
         if self.args.MCTSmode == 0:
             arena_cubes = [list(map(str, l)) for l in all_cubes]
