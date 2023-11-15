@@ -46,7 +46,7 @@ args_f = {
     'phase': 'scaling',
     'version': 'v1',
 
-    'debugging': False,
+    'debugging': True,
     'wandb_logging': False,
 
     'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
@@ -56,7 +56,7 @@ args_f = {
     # 'MAX_LITERALS': 18*17//2,
     'STATE_SIZE': 10,
     # 'STEP_UPPER_BOUND': 20, # max depth of CnC
-    # 'VARS_ELIMINATED': 20, # max number of vars to be eliminated
+    # 'VARS_TO_ELIM': 20, # max number of vars to be eliminated
     'STEP_UPPER_BOUND_MCTS': 20, # max depth of MCTS
 
     'LIMIT_TOP_3': True
@@ -72,9 +72,9 @@ def main(args_parsed):
         args['STEP_UPPER_BOUND'] = args_parsed.n
     
     if args.n != -1:
-        args['VARS_ELIMINATED'] = args_parsed.n
+        args['VARS_TO_ELIM'] = args_parsed.n
     else:
-        args['VARS_ELIMINATED'] = args_parsed.m
+        args['VARS_TO_ELIM'] = args_parsed.m
     
     args['MAX_LITERALS'] = args_parsed.m
 

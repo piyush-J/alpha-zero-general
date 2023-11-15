@@ -227,7 +227,7 @@ if __name__ == '__main__':
 
     args = dotdict({**vars(args_parsed)})
 
-    args['VARS_ELIMINATED'] = args_parsed.n
+    args['VARS_TO_ELIM'] = args_parsed.n
     args['STEP_UPPER_BOUND'] = args_parsed.n
     args['MAX_LITERALS'] = args_parsed.m
     args['STATE_SIZE'] = 10

@@ -147,13 +147,7 @@ class MCTS():
                 if self.args.debugging:
                     log.info("Using heuristic tree search without NN")
                 # Steps in MCTS: selection, expansion, simulation, backpropagation
-                # Value of the initial state = same as simulating a rollout from the initial state = avg (expectation of rew) of the metric dict * STEP_UPPER_BOUND
-                # For other intermediate steps = current average reward + (avg of the metric dict * remaining steps)
-                remaining_vars = self.args.VARS_ELIMINATED - canonicalBoard.len_asgn_edge_vars
-                if remaining_vars < 0: remaining_vars = 0 # clip to 0
-                # this is a guaranteed lower-bound increase in the number of vars eliminated 
-                # because of the l * r + l + r term in the metric vis-a-vis the termination criteria
-                v = canonicalBoard.total_rew + (remaining_vars**2)/(self.args.VARS_ELIMINATED**2) # eval_var is a quadratic increase in the vars eliminated because of the l * r + l + r term
+                v = canonicalBoard.total_rew
                 self.Ps[s] = canonicalBoard.prob
             else:
                 self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())

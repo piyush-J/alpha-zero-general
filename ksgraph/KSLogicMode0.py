@@ -30,7 +30,6 @@ class BoardMode0(Board):
         self.prob = None
         self.march_pos_lit_score_dict = None
         self.len_asgn_edge_vars = None
-        self.current_metric_val = None
         self.ranked_keys = None
         self.top_five_kv_sorted = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
@@ -46,7 +45,7 @@ class BoardMode0(Board):
         return f"Board- res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}, ranked_keys: {self.ranked_keys}, top_five_kv_sorted: {self.top_five_kv_sorted}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.len_asgn_edge_vars >= self.args.VARS_ELIMINATED or self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
+        return self.res is None and (self.len_asgn_edge_vars >= self.args.VARS_TO_ELIM or self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def calculate_march_metrics(self):
         if self.args.debugging: log.info(f"Calculating march metrics")
@@ -58,7 +57,7 @@ class BoardMode0(Board):
 
         if res == 0: # refuted node
             self.res = 0 
-            # len_asgn_edge_vars = self.args.VARS_ELIMINATED
+            # len_asgn_edge_vars = self.args.VARS_TO_ELIM
 
         self.len_asgn_edge_vars = len_asgn_edge_vars
 
@@ -119,7 +118,6 @@ class BoardMode0(Board):
         new_state.valid_literals = None
         new_state.prob = None
         new_state.march_pos_lit_score_dict = None
-        new_state.current_metric_val = None
         new_state.ranked_keys = None
         new_state.len_asgn_edge_vars = None
         new_state.top_five_kv_sorted = None
@@ -131,10 +129,12 @@ class BoardMode0(Board):
         # collecting from the parent node's dict; TODO: not considering direction, so choosing the +ve one (abs)
         assert self.march_pos_lit_score_dict is not None
         try:
-            self.current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
+            current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
         except KeyError:
-            self.current_metric_val = self.march_pos_lit_score_dict_all[abs(chosen_literal[0])]
-        new_state.total_rew = self.current_metric_val # reward is proportional to the number of literals that are assigned (eval_var)
+            current_metric_val = self.march_pos_lit_score_dict_all[abs(chosen_literal[0])]
+        # reward is the propagation rate
+        new_state.total_rew = current_metric_val / new_state.step
+        # proportional to the number of literals that are assigned (eval_var), inversely proportional to the number of steps
         new_state.calculate_march_metrics()
         if self.args.debugging: log.info(f"Calculated march metrics")
         return new_state
