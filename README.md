@@ -1,3 +1,3 @@
-# AlphaKS/AlphaSAT
+# AlphaMapleSAT
 
-../PhysicsCheck/gen_cubes/march_cu/march_cu constraints_17_c_100000_2_2_0_final.simp -o march_cubes_17.cubes -d 1 -m 136
+python -u main.py "constraints_19_c_100000_2_2_0_final.simp" -d 1 -m 171 -o "e4_19_debug.cubes" -order 19 -prod
