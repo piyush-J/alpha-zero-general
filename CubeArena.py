@@ -1,3 +1,4 @@
+import argparse
 import itertools
 import logging
 import coloredlogs
@@ -160,21 +161,22 @@ class CubeArena():
             action = board.lits2var[int(literal)]
             
             # verify that the action is valid in the current board and the game is not over
-            valids = game.getValidMoves(board)
-            assert valids[action], "Invalid action chosen by cube agent"
+            # valids = game.getValidMoves(board)
+            # assert valids[action], f"Invalid action chosen by cube agent - {cube}, {board}, {board.get_legal_literals()}"
             reward_now = game.getGameEnded(board)
-            assert reward_now is None, "Invalid board state: Game is over"
+            assert reward_now is None, f"Invalid board state: Game is over - {board}"
 
             game_copy = game.get_copy()
             board = game_copy.getNextState(board, action)
 
         # now the game should be over
         reward_now = game.getGameEnded(board, eval_cls=True)
-        assert reward_now is not None, "Invalid board state: Game is not over"
+        assert reward_now is not None, f"Invalid board state: Game is not over - {board}"
 
         # if board.is_giveup():
-        print(f"Cube: {cube}, reward: {reward_now}")
-        solver_time.append(reward_now) 
+        print(f"Cube: {cube}, reward: {reward_now}, board.total_rew: {board.total_rew}, avg_reward: {board.total_rew/board.step}")
+        if reward_now > 0:
+            solver_time.append(reward_now) 
         
         return reward_now     
 
@@ -185,17 +187,23 @@ class CubeArena():
 
         solver_time = [] # solver time in seconds at leaf nodes (when game is in giveup state)
         rew = 0
+        unsat_count = 0
         
         for cube in list_of_cubes:
             game = self.game.get_copy()
             board = game.getInitBoard()
-            rew += self.simulatePath(game, board, cube, solver_time)
+            rew_current = self.simulatePath(game, board, cube, solver_time)
+            if rew_current == -1: 
+                unsat_count += 1
+            else:
+                assert rew_current > 0, f"Invalid reward: {rew_current}"
+                rew += rew_current
 
         calcAndLogMetrics(0, np.array([[solver_time]]), "CubeAgent", newagent=False)
 
-        assert len(solver_time) == len(list_of_cubes), f"Number of cubes ({len(list_of_cubes)}) and solver time ({len(solver_time)}) don't match"
+        assert len(solver_time)+unsat_count == len(list_of_cubes), f"Number of cubes ({len(list_of_cubes)}) and solver time ({len(solver_time)}) don't match"
 
-        log.info(f"Cube Agent Total Reward: {rew} for {len(list_of_cubes)} cubes")
+        log.info(f"Cube Agent Total Reward: {rew} for {len(list_of_cubes)} cubes; Average Reward: {rew/len(list_of_cubes)}; Unsat/Err Count: {unsat_count}")
 
     def runSimulation(self): # main method
         list_of_cubes = self.parseCubeFile()
@@ -204,43 +212,31 @@ class CubeArena():
         self.playGame(list_of_cubes)
 
 if __name__ == '__main__':
-    args = dotdict({
-        'numIters': 1,           # TODO: Change this to 1000
-        'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
-        'tempThreshold': 5,        #
-        'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
-        'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-        'numMCTSSims': 20,          # Number of games moves for MCTS to simulate.
-        'arenaCompare': 1,         # TODO: change this to 20 or 40 # Number of games to play during arena play to determine if new net will be accepted.
-        'cpuct': 1,                 # controls the amount of exploration; keeping high for MCTSmode 0
-
-        'checkpoint': './temp/',
-        'load_model': False,
-        'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
-        'numItersForTrainExamplesHistory': 20,
-
-        'CCenv': True,
-        'model_name': 'MCTS',
-        'model_notes': 'MCTS without NN',
-        'model_mode': 'mode-0',
-        'phase': 'scaling',
-        'version': 'v1',
-
-        'debugging': True,
-        'wandb_logging': False,
-
-        'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
-        'nn_iter_threshold': 5, # threshold for the number of iterations after which the NN is used for MCTS
-
-        'order': 17,
-        'MAX_LITERALS': 17*16//2,
-        'STATE_SIZE': 10,
-        'STEP_UPPER_BOUND': 10, # max depth of CnC
-        'STEP_UPPER_BOUND_MCTS': 4 # max depth of MCTS
-    })
+    # python -u CubeArena.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_nod_s300_c05.cubes"
 
     wandb.init(mode="disabled")
 
-    game = KSGame(args=args, filename="constraints_17_c_100000_2_2_0_final.simp") 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename", help="filename of the CNF file", type=str)
+    parser.add_argument("-order", help="KS order", type=int)
+    parser.add_argument("-n", help="cutoff when n variables are eliminated", type=int)
+    # parser.add_argument("-d", help="cutoff when d depth is reached", type=int)
+    parser.add_argument("-m", help="only top m variables to be considered for cubing", type=int)
+    parser.add_argument("-o", help="cube file")
+    args_parsed = parser.parse_args()
 
-    CubeArena(agent1=None, game=game, cubefile='y.cubes').runSimulation()
+    args = dotdict({**vars(args_parsed)})
+
+    args['VARS_TO_ELIM'] = args_parsed.n
+    args['STEP_UPPER_BOUND'] = args_parsed.n
+    args['MAX_LITERALS'] = args_parsed.m
+    args['STATE_SIZE'] = 10
+    args['STEP_UPPER_BOUND_MCTS'] = 20
+    args['MCTSmode'] = 0
+    args['debugging'] = False
+    args['wandb_logging'] = False
+    args['LIMIT_TOP_3'] = False
+
+    game = KSGame(args=args, filename=args.filename) 
+
+    CubeArena(agent1=None, game=game, cubefile=args.o).runSimulation()

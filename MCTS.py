@@ -4,8 +4,11 @@ import math
 import numpy as np
 import psutil
 import wandb
+import random
 
 EPS = 1e-8
+random.seed(42)
+np.random.seed(42)
 
 log = logging.getLogger(__name__)
 
@@ -42,17 +45,27 @@ class MCTS():
         """
         canonicalBoard = game.getCanonicalForm(board)
 
-        for _ in range(self.args.numMCTSSims):
-            if self.args.debugging: log.info("MCTS Simulation #{}".format(_))
+        if verbose:
             # Getting % usage of virtual_memory ( 3rd field)
             print('RAM memory % used:', psutil.virtual_memory()[2])
             # Getting usage of virtual_memory in GB ( 4th field)
             print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
+
+        for _ in range(self.args.numMCTSSims):
+            if self.args.debugging: log.info("MCTS Simulation #{}".format(_))
             self.search(game, canonicalBoard, verbose=verbose)
 
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
-        print("Non zero elements in counts: ", [(ind_, elem) for ind_, elem in enumerate(counts) if elem != 0])
+        non_zero_elems = [(ind_, elem) for ind_, elem in enumerate(counts) if elem != 0]
+        if verbose:
+            print("Non zero elements in counts: ", non_zero_elems)
+        if len(non_zero_elems) == 2:
+            log.warning("NO EXPLORATION!!!!")
+        
+        # open a file to write the counts
+        with open(f"cubing_outputs/counts_{self.args.o}.txt", "a") as f:
+            f.write(f"{non_zero_elems}\n")
 
         if temp == 0:
             bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
@@ -66,7 +79,7 @@ class MCTS():
         probs = [x / counts_sum for x in counts]
 
         all_data = self.all_logging_data + self.data
-        log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(all_data)}")
+        if self.args.debugging: log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(all_data)}")
         table = wandb.Table(data=all_data, columns = ["level", "Qsa", "best_u", "v"])
         wandb.log({"MCTS Qsa vs tree depth" : wandb.plot.scatter(table,
                                     "level", "Qsa")})
@@ -133,16 +146,10 @@ class MCTS():
             if verbose:
                 log.info(f"Node is leaf node, using NN to predict value for\n{s}")
             if self.args.MCTSmode == 0 or (self.args.MCTSmode != 0 and self.nn_iteration < self.args.nn_iter_threshold):
-                log.info("Using heuristic tree search without NN")
+                if self.args.debugging:
+                    log.info("Using heuristic tree search without NN")
                 # Steps in MCTS: selection, expansion, simulation, backpropagation
-                # Value of the initial state = same as simulating a rollout from the initial state = avg (expectation of rew) of the metric dict * STEP_UPPER_BOUND
-                # For other intermediate steps = current average reward + (avg of the metric dict * remaining steps)
-                remaining_depth = self.args.STEP_UPPER_BOUND - canonicalBoard.step
-                assert remaining_depth >= 0
-                values_metric_dict = canonicalBoard.march_pos_lit_score_dict.values()
-                assert len(values_metric_dict) > 0
-                average_metric_dict = sum(values_metric_dict) / len(values_metric_dict)
-                v = canonicalBoard.total_rew + remaining_depth * average_metric_dict
+                v = canonicalBoard.total_rew
                 self.Ps[s] = canonicalBoard.prob
             else:
                 self.Ps[s], v = self.nnet.predict(canonicalBoard.get_state())
@@ -175,12 +182,16 @@ class MCTS():
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                             1 + self.Nsa[(s, a)])
-                    print(f"a: {a}, u: {u:.6f}, self.Qsa[(s, a)]: {self.Qsa[(s, a)]:.4f}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)]):.6f}")
+                    if self.args.debugging: # and level == 0: 
+                        print(f"a: {a}, u: {u:.6f}, self.Qsa[(s, a)]: {self.Qsa[(s, a)]:.4f}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)]):.6f}")
                     
                 else:
                     # assert self.Ns[s] == 0, f"self.Ns[s] = {self.Ns[s]} for s = {s}, a = {a}, canonicalBoard = {canonicalBoard}"
                     u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
-                    print(f"a: {a}, u: {u}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s] + EPS)}")
+                    if self.args.debugging: # and level == 0: 
+                        print(f"a: {a}, u: {u}, self.Ps[s][a]: {self.Ps[s][a]:.4f}, factor: {math.sqrt(self.Ns[s] + EPS)}")
+                    if self.Ps[s][a] == 0:
+                        print(f"DEBUG - a: {a}, valids[a]: {valids[a]}, Board: {canonicalBoard}")
 
                 if u > cur_best:
                     cur_best = u
@@ -188,18 +199,19 @@ class MCTS():
 
                 all_u[a] = u
 
-        print("Canonical board march metrics:")
-        sorted_march_items = sorted(canonicalBoard.march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
-        for k, v in sorted_march_items[:5]:
-            print(f"{k}: {v}")
-        print("Canonical board best u vals:")
-        sorted_u_items = sorted(all_u.items(), key=lambda x:x[1], reverse=True)
-        for k, v in sorted_u_items[:5]:
-            print(f"{k}: {v}")
+        if self.args.debugging: # and level == 0: 
+            print("Canonical board march metrics:")
+            sorted_march_items = sorted(canonicalBoard.march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
+            for k, v in sorted_march_items[:5]:
+                print(f"{k}: {v}")
+            print("Canonical board best u vals:")
+            sorted_u_items = sorted(all_u.items(), key=lambda x:x[1], reverse=True)
+            for k, v in sorted_u_items[:5]:
+                print(f"{k}: {v}")
 
         a = best_act
 
-        if self.args.debugging: 
+        if self.args.debugging: # and level == 0: 
             log.info(f"Best action is {a} with self.Ps[s][a] = {self.Ps[s][a]:.3f}")
             print(f"max self.Ps[s] value {max(self.Ps[s]):.3f}, same self.Ps[s][a] count = {sum(self.Ps[s] == self.Ps[s][a])}")
             print(f"best self.Ps[s] vals = {[sorted(enumerate(self.Ps[s]), reverse=True, key=lambda x:x[1])[:6]]}")
@@ -215,11 +227,13 @@ class MCTS():
             game_copy_dir2 = game.get_copy()
             next_s_dir2 = game_copy_dir2.getNextState(canonicalBoard, comp_a)
 
-            log.info("Cache new data")
+            if self.args.debugging:
+                log.info("Cache new data")
             self.cache_data[(s, a)] = (next_s_dir1, canonicalBoard)
             self.cache_data[(s, comp_a)] = (next_s_dir2, canonicalBoard)
         else:
-            log.info("Using cached data")
+            if self.args.debugging:
+                log.info("Using cached data")
             comp_a = canonicalBoard.get_complement_action(a)
             (next_s_dir1, canonicalBoard) = self.cache_data[(s, a)]
             (next_s_dir2, canonicalBoard) = self.cache_data[(s, comp_a)]
@@ -231,8 +245,9 @@ class MCTS():
 
         v1 = self.search(game_copy_dir1, next_s_dir1, level=level+1)
         v2 = self.search(game_copy_dir2, next_s_dir2, level=level+1)
-        v = (v1 + v2)/2 # average reward of the two children
+        v = (v1 + v2)/2 - self.args.varpen*(abs(v1-v2)) # average reward of the two children - penalize if the rewards are very different
         # the 2 children already have the reward which is the sum along the path, so the parent should have the average
+        # if one of them got unsat, the reward would be lower
 
         if (s, a) in self.Qsa: # using (s,a) from the positive-dir of a
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)

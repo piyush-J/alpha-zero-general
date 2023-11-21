@@ -15,79 +15,58 @@ import wandb
 
 from .KSLogic import Board
 
+from .EvalVarCalc import Node, MarchPysatPropagate
+
 log = logging.getLogger(__name__)
 cnf_obj = None
+pysat_propagate_obj = None
 
 class BoardMode0(Board):
 
-    def __init__(self, args, cnf, edge_dict, max_metric_val):
-        Board.__init__(self, args, cnf, edge_dict)
+    def __init__(self, args, cnf, edge_dict, max_metric_val, pysat_propagate):
+        Board.__init__(self, args, cnf, edge_dict, pysat_propagate)
         self.order = args.order
         self.valid_literals = None
         self.prob = None
         self.march_pos_lit_score_dict = None
-        self.current_metric_val = None
+        self.len_asgn_edge_vars = None
         self.ranked_keys = None
+        self.top_five_kv_sorted = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
+        if args.verbose: print("Maximum metric value: ", self.max_metric_val)
+
+        global pysat_propagate_obj
+        pysat_propagate_obj = pysat_propagate
 
         global cnf_obj
         cnf_obj = cnf
 
     def __str__(self):
-        return f"Board- res: {self.res}, step: {self.step}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}"
-
+        return f"Board- res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}, ranked_keys: {self.ranked_keys}, top_five_kv_sorted: {self.top_five_kv_sorted}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
+        return self.res is None and (self.len_asgn_edge_vars >= self.args.VARS_TO_ELIM or self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
     
     def calculate_march_metrics(self):
-        # TODO: file saving might cause issue with code parallelization
         if self.args.debugging: log.info(f"Calculating march metrics")
-        filename = "tmp.cnf"
-        CNF(from_clauses=self.cnf()).to_file(filename)
-        if self.args.debugging: log.info(f"Saved to file")
         edge_vars = self.order*(self.order-1)//2 
+        assert pysat_propagate_obj is not None
+        prior_actions_flat = list(itertools.chain.from_iterable(self.prior_actions))
+        res, len_asgn_edge_vars, march_pos_lit_score_dict_all = pysat_propagate_obj.propagate(Node(prior_actions_flat))
+        # print(res, march_pos_lit_score_dict)
 
-        # if len(self.prior_actions) > 0:
-        #     assert self.cnf_clauses_org + self.prior_actions == self.cnf.clauses # sanity check
+        if res == 0: # refuted node
+            self.res = 0 
+            # len_asgn_edge_vars = self.args.VARS_TO_ELIM
 
-        # ../PhysicsCheck/gen_cubes/march_cu/march_cu tmp.cnf -o tmp.cubes -d 1 -m ...
-        result = subprocess.run(['../PhysicsCheck/gen_cubes/march_cu/march_cu', 
-                                filename,
-                                '-o',
-                                'tmp.cubes', 
-                                '-d', '1', '-m', str(edge_vars)], capture_output=True, text=True)
-        output = result.stdout
+        self.len_asgn_edge_vars = len_asgn_edge_vars
 
-        # two groups enclosed in separate ( and ) bracket
-        # this score considers the product of the two sides which can create problem (Refer Debugging Notes #7)
-        # march_pos_lit_score_dict = dict(re.findall(r"alphasat: variable (\d+) with score (\d+)", output))
-        # march_pos_lit_score_dict = {int(k):float(v) for k,v in march_pos_lit_score_dict.items()}
-
-        re_out = re.findall(r"alphasat: variable: (\d+), w-left: (\d+.\d+), w-right: (\d+.\d+)", output)
-        march_pos_lit_score_dict = {int(k):(float(v)+float(w))/2.0 for k,v,w in re_out} # average of the two sides
-
-        if len(march_pos_lit_score_dict) == 0:
-            unsat_check = re.findall(r"c number of cubes (\d+), including (\d+) refuted leaf", output)
-            if len(unsat_check) > 0 and unsat_check[0][0] == unsat_check[0][1] in output:
-                assert len(unsat_check) == 1
-                self.res = 0
-            elif "SATISFIABLE" in output:
-                self.res = 1
-                print("Found SAT!")
-                print(output)
-                print("Exiting...")
-                exit(0)
-            elif "s UNKNOWN" in output:
-                self.res = 2
-            else:
-                print("Unknown result with empty dict! Check tmp.cnf and tmp.cubes files")
-                print(output)
-                exit(0)
-
-        # truncate dict to keep only top 3 values
-        sorted_march_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
-        march_pos_lit_score_dict = dict(sorted_march_items[:3])
+        sorted_march_items = sorted(march_pos_lit_score_dict_all.items(), key=lambda x:x[1], reverse=True)
+        self.top_five_kv_sorted = dict(sorted_march_items[:5])
+        if self.args.LIMIT_TOP_3:
+            march_pos_lit_score_dict = dict(sorted_march_items[:3])
+        else: # required for CubeArena
+            march_pos_lit_score_dict = dict(sorted_march_items)
 
         valid_pos_literals = list(march_pos_lit_score_dict.keys())
         valid_neg_literals = [-l for l in valid_pos_literals]
@@ -108,12 +87,20 @@ class BoardMode0(Board):
         for k in march_pos_lit_score_dict.keys():
             march_pos_lit_score_dict[k] /= self.max_metric_val
 
+        # normalize the values of the march_pos_lit_score_dict_all
+        for k in march_pos_lit_score_dict_all.keys():
+            march_pos_lit_score_dict_all[k] /= self.max_metric_val
+        
         max_val = max(march_pos_lit_score_dict.values()) if len(march_pos_lit_score_dict) > 0 else 0
         wandb.log({"depth": self.step, "max_val": max_val})
+        # also log in a separate file
+        # with open("max_val.txt", "a") as f:
+        #     f.write(f"{self.step} {max_val}\n")
 
         self.valid_literals = valid_pos_literals + valid_neg_literals # both +ve and -ve literals
         self.prob = prob
         self.march_pos_lit_score_dict = march_pos_lit_score_dict
+        self.march_pos_lit_score_dict_all = march_pos_lit_score_dict_all
         sorted_items = sorted(march_pos_lit_score_dict.items(), key=lambda x:x[1], reverse=True)
         self.ranked_keys = [k for k,v in sorted_items]
     
@@ -131,8 +118,9 @@ class BoardMode0(Board):
         new_state.valid_literals = None
         new_state.prob = None
         new_state.march_pos_lit_score_dict = None
-        new_state.current_metric_val = None
         new_state.ranked_keys = None
+        new_state.len_asgn_edge_vars = None
+        new_state.top_five_kv_sorted = None
 
         new_state.step += 1
         chosen_literal = [new_state.var2lits[action]]
@@ -140,8 +128,13 @@ class BoardMode0(Board):
         # new_state.cnf.append(chosen_literal) # append to the cnf object
         # collecting from the parent node's dict; TODO: not considering direction, so choosing the +ve one (abs)
         assert self.march_pos_lit_score_dict is not None
-        self.current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
-        new_state.total_rew += self.current_metric_val # adding so that the leaves denote the total reward of the path
+        try:
+            current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
+        except KeyError:
+            current_metric_val = self.march_pos_lit_score_dict_all[abs(chosen_literal[0])]
+        # reward is the propagation rate
+        new_state.total_rew = current_metric_val / new_state.step
+        # proportional to the number of literals that are assigned (eval_var), inversely proportional to the number of steps
         new_state.calculate_march_metrics()
         if self.args.debugging: log.info(f"Calculated march metrics")
         return new_state
@@ -155,8 +148,8 @@ class BoardMode0(Board):
                 print("Exiting...")
                 exit(0)
                 # return self.total_rew + self.args.STEP_UPPER_BOUND
-            elif self.is_fail():
-                norm_rew = 1
+            elif self.is_fail(): 
+                norm_rew = -1 
             elif self.is_unknown(): # results in unknown using march_cu so heavily penalize and don't go down this path
                 norm_rew = -1
             elif self.is_giveup(): 
@@ -165,7 +158,10 @@ class BoardMode0(Board):
                 raise Exception("Unknown game state")
             
             if eval_cls:
-                return norm_rew * self.max_metric_val
+                if norm_rew > 0:
+                    return norm_rew * self.max_metric_val
+                else:
+                    return norm_rew
             else:
                 wandb.log({"depth": self.step, "norm_rew": norm_rew})
                 return norm_rew

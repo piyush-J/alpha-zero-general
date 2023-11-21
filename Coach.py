@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import sys
+import time
 from collections import deque
 from pickle import Pickler, Unpickler
 from random import shuffle
@@ -10,6 +11,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
 import wandb
+import random
 
 from Arena import PlanningArena
 from MCTS import MCTS
@@ -18,6 +20,8 @@ import itertools
 
 log = logging.getLogger(__name__)
 
+random.seed(42)
+np.random.seed(42)
 
 class Coach():
     """
@@ -28,7 +32,8 @@ class Coach():
     def __init__(self, game, nnet, args):
         self.game = game
         self.nnet = nnet
-        self.pnet = self.nnet.__class__(self.game)  # the competitor network
+        if self.nnet is not None:
+            self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
         self.all_logging_data = []
         self.nn_iteration = None
@@ -49,34 +54,49 @@ class Coach():
         reward_now = game.getGameEnded(board)
         if reward_now: # reward is not None, i.e., game over
             flattened_list = itertools.chain.from_iterable(board.prior_actions)
-            if board.is_fail():
-                log.info("March said UNSAT --- skipping this cube (not adding to file)")
-            else:
-                all_cubes.append(flattened_list)
+            # if board.is_fail():
+            #     log.info("March said UNSAT --- skipping this cube (not adding to file)")
+            # else:
+            all_cubes.append(flattened_list) # adding all cubes
             self.leaf_counter += 1
-            if self.args.debugging: log.info(f"Leaf node: {self.leaf_counter} with reward = {reward_now} and state: {board}")
+            if self.args.debugging:
+                log.info(f"Leaf node: {self.leaf_counter} with reward = {reward_now} and state: {board}")
             return reward_now # only leaves have rewards & leaves don't have neighbors
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
         # Non-leaf nodes
         temp = int(level < self.args.tempThreshold)
         if self.args.debugging: log.info(f"-----------------------------------\nDFS level: {level}")
-        pi = self.mcts.getActionProb(game, board, temp=temp)
+        pi = self.mcts.getActionProb(game, board, temp=temp, verbose=self.args.verbose)
         valids = game.getValidMoves(board)
 
         a = np.random.choice(len(pi), p=pi)
-        march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
         if self.args.debugging: 
             print(f"a: {a}, board.var2lits[a]: {board.var2lits[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
             print("Board: ", board)
+        try: 
+            march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
+        except Exception as e: # debug based on file (e4_20_mcts_nod_s300_c3_pen02-cdr1138-14664123.out) in Debug dir in Git Large Files
+            march_rank = -1
+            print("Exception: ", e)
+            print("board.valid_literals: ", board.valid_literals, board.march_pos_lit_score_dict)
+        if self.args.debugging: 
             log.info(f"DFS best action is {a} with rank {march_rank}, pi = {pi[a]:.3f}, max pi value {max(pi):.3f}, same pi count = {sum(np.array(pi) == pi[a])}")
         wandb.log({"march_rank": march_rank})
-        game_copy_dir1 = game.get_copy()
-        next_s_dir1 = game_copy_dir1.getNextState(board, a)
 
-        comp_a = board.get_complement_action(a) # complement of the literal
+        s = game.stringRepresentation(board)
+        comp_a = board.get_complement_action(a)
+        (next_s_dir1, board) = self.mcts.cache_data[(s, a)]
+        (next_s_dir2, board) = self.mcts.cache_data[(s, comp_a)]
+        game_copy_dir1 = game.get_copy()
         game_copy_dir2 = game.get_copy()
-        next_s_dir2 = game_copy_dir2.getNextState(board, comp_a)
+
+        # game_copy_dir1 = game.get_copy()
+        # next_s_dir1 = game_copy_dir1.getNextState(board, a)
+
+        # comp_a = board.get_complement_action(a) # complement of the literal
+        # game_copy_dir2 = game.get_copy()
+        # next_s_dir2 = game_copy_dir2.getNextState(board, comp_a)
 
         assert valids[a] and valids[comp_a], "Invalid action chosen by MCTS"
 
@@ -99,6 +119,7 @@ class Coach():
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
+        start_time = time.time()
         trainExamples = []
         all_cubes = []
         game = self.game.get_copy()
@@ -107,11 +128,14 @@ class Coach():
         self.leaf_counter = 0
         r = self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
 
+        time_elapsed = time.time() - start_time
+        print("Time taken for cubing: ", round(time_elapsed, 3))
+
         if self.args.MCTSmode == 0:
             arena_cubes = [list(map(str, l)) for l in all_cubes]
-            if os.path.exists("arena_cubes.txt"):
-                log.info("arena_cubes.txt already exists. Replacing old file!")
-            f = open("arena_cubes.txt", "w")
+            if os.path.exists(self.args.o):
+                log.info(f"{self.args.o} already exists. Replacing old file!")
+            f = open(self.args.o, "w")
             f.writelines(["a " + " ".join(l) + " 0\n" for l in arena_cubes])
             f.close()
 

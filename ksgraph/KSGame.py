@@ -1,16 +1,20 @@
 import copy
 from Game import Game
-from .KSLogic import Board
-from .KSLogicMode0 import BoardMode0
+from ksgraph.KSLogic import Board
+from ksgraph.KSLogicMode0 import BoardMode0
 
 import numpy as np
 from pysat.formula import CNF
+from pysat.solvers import Solver
 
+import operator
 import networkx as nx
 import wandb
 import matplotlib.pyplot as plt
 
 import hashlib
+
+from ksgraph.EvalVarCalc import Node, MarchPysatPropagate
 
 def calculate_hash(string):
     sha256_hash = hashlib.sha256()
@@ -49,9 +53,11 @@ class KSGame(Game):
         #             count += 1
         #             self.tri_dict[(a,b,c)] = count
 
+        self.pysat_propagate = MarchPysatPropagate(cnf=self.cnf, m=self.MAX_LITERALS)
+
     def _make_representation(self):
         if self.args.MCTSmode in [0, 2]:
-            board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict, max_metric_val=len(self.cnf.clauses))
+            board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict, max_metric_val=self.args.VARS_TO_ELIM**2, pysat_propagate=self.pysat_propagate)
             board.calculate_march_metrics() # initialize the valid literals, prob, and march_var_score_dict
             return board
         return Board(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict)
