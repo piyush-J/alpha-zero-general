@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 from Coach import Coach
 
-from ksgraph.NNet import NNetWrapper as ksnn
+# from ksgraph.NNet import NNetWrapper as ksnn
 from ksgraph.KSGame import KSGame
 
 from utils import *

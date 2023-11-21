@@ -13,7 +13,7 @@ from tqdm import tqdm
 import wandb
 import random
 
-from Arena import PlanningArena
+# from Arena import PlanningArena
 from MCTS import MCTS
 
 import itertools
@@ -155,119 +155,119 @@ class Coach():
         # with open('mcts_cache.pkl', 'wb') as f:
         #     pickle.dump(self.mcts.cache_data, f)
 
-    def learn(self):
-        """
-        Performs numIters iterations with numEps episodes of self-play in each
-        iteration. After every iteration, it retrains neural network with
-        examples in trainExamples (which has a maximum length of maxlenofQueue).
-        It then pits the new neural network against the old one and accepts it
-        only if it wins >= updateThreshold fraction of games.
-        """
+    # def learn(self):
+    #     """
+    #     Performs numIters iterations with numEps episodes of self-play in each
+    #     iteration. After every iteration, it retrains neural network with
+    #     examples in trainExamples (which has a maximum length of maxlenofQueue).
+    #     It then pits the new neural network against the old one and accepts it
+    #     only if it wins >= updateThreshold fraction of games.
+    #     """
 
-        for i in range(1, self.args.numIters + 1):
-            # bookkeeping
-            log.info(f'Starting Iter #{i} ...')
-            self.NN_iteration = i
-            # examples of the iteration
-            if not self.skipFirstSelfPlay or i > 1:
-                iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+    #     for i in range(1, self.args.numIters + 1):
+    #         # bookkeeping
+    #         log.info(f'Starting Iter #{i} ...')
+    #         self.NN_iteration = i
+    #         # examples of the iteration
+    #         if not self.skipFirstSelfPlay or i > 1:
+    #             iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
-                for _ in tqdm(range(self.args.numEps), desc="Self Play"):
-                    # TODO: can be parallelized
-                    self.all_logging_data += self.mcts.data
-                    self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)  # reset search tree every episode
-                    iterationTrainExamples += self.executeEpisode()
+    #             for _ in tqdm(range(self.args.numEps), desc="Self Play"):
+    #                 # TODO: can be parallelized
+    #                 self.all_logging_data += self.mcts.data
+    #                 self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)  # reset search tree every episode
+    #                 iterationTrainExamples += self.executeEpisode()
 
-                # save the iteration examples to the history 
-                self.trainExamplesHistory.append(iterationTrainExamples)
+    #             # save the iteration examples to the history 
+    #             self.trainExamplesHistory.append(iterationTrainExamples)
 
-            if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
-                log.warning(
-                    f"Removing the oldest entry in trainExamples. len(trainExamplesHistory) = {len(self.trainExamplesHistory)}")
-                self.trainExamplesHistory.pop(0)
-            # backup history to a file
-            # NB! the examples were collected using the model from the previous iteration, so (i-1)  
-            self.saveTrainExamples(i - 1)
+    #         if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+    #             log.warning(
+    #                 f"Removing the oldest entry in trainExamples. len(trainExamplesHistory) = {len(self.trainExamplesHistory)}")
+    #             self.trainExamplesHistory.pop(0)
+    #         # backup history to a file
+    #         # NB! the examples were collected using the model from the previous iteration, so (i-1)  
+    #         self.saveTrainExamples(i - 1)
 
-            trainExamples, perc = self.prepareTrainExamples(i)
+    #         trainExamples, perc = self.prepareTrainExamples(i)
 
-            # training new network, keeping a copy of the old one
-            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.pnet, self.args, self.all_logging_data, self.nn_iteration)
+    #         # training new network, keeping a copy of the old one
+    #         self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+    #         self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+    #         pmcts = MCTS(self.pnet, self.args, self.all_logging_data, self.nn_iteration)
 
-            self.nnet.train(trainExamples)
-            nmcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
+    #         self.nnet.train(trainExamples)
+    #         nmcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
 
-            log.info('PITTING AGAINST PREVIOUS VERSION')
-            random_action_agent = lambda game, board: np.random.choice([board.lits2var[l] for l in board.get_legal_literals()])
-            arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
-                                    lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc, i)#, display=print)
-            prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False, vsRandom=None) # pass random_action_agent
+    #         log.info('PITTING AGAINST PREVIOUS VERSION')
+    #         random_action_agent = lambda game, board: np.random.choice([board.lits2var[l] for l in board.get_legal_literals()])
+    #         arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
+    #                                 lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc, i)#, display=print)
+    #         prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False, vsRandom=None) # pass random_action_agent
 
-            log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
-            wandb.log({"new_rewards": nrewards, "prev_rewards": prewards, "iteration": i})
-            if nrewards <= prewards: # or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
-                log.info('REJECTING NEW MODEL')
-                self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            else:
-                log.info('ACCEPTING NEW MODEL')
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
-            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
-            self.mcts.nnet = self.nnet # update the search tree model with the new model
+    #         log.info('NEW/PREV REWARDS : %d / %d' % (nrewards, prewards))
+    #         wandb.log({"new_rewards": nrewards, "prev_rewards": prewards, "iteration": i})
+    #         if nrewards <= prewards: # or float(nrewards) / (prewards + nrewards) < self.args.updateThreshold:
+    #             log.info('REJECTING NEW MODEL')
+    #             self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+    #         else:
+    #             log.info('ACCEPTING NEW MODEL')
+    #             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
+    #         self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+    #         self.mcts.nnet = self.nnet # update the search tree model with the new model
 
-    def prepareTrainExamples(self, iteration):
+    # def prepareTrainExamples(self, iteration):
 
-        iterationExamples = self.trainExamplesHistory[-1]
-        rew = [e[2] for e in iterationExamples]
+    #     iterationExamples = self.trainExamplesHistory[-1]
+    #     rew = [e[2] for e in iterationExamples]
         
-        # mean, min, std and max of the rewards
-        log.info(f"REWARDS - Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
-        plt.boxplot(rew)
-        plt.savefig("boxplot_rew.png")
-        wandb.log({"Rewards (train set)": wandb.Image("boxplot_rew.png")})
+    #     # mean, min, std and max of the rewards
+    #     log.info(f"REWARDS - Mean: {np.mean(rew)}, Std: {np.std(rew)}, Min: {np.min(rew)}, Max: {np.max(rew)}")
+    #     plt.boxplot(rew)
+    #     plt.savefig("boxplot_rew.png")
+    #     wandb.log({"Rewards (train set)": wandb.Image("boxplot_rew.png")})
 
-        perc = np.percentile(rew, 90)
-        log.info(f"Percentile is {perc}")
-        wandb.log({"mean_reward_tr": np.mean(rew), "std_reward_tr": np.std(rew), "min_reward_tr": np.min(rew), "max_reward_tr": np.max(rew), "percentile_tr": perc, "iteration": iteration})
+    #     perc = np.percentile(rew, 90)
+    #     log.info(f"Percentile is {perc}")
+    #     wandb.log({"mean_reward_tr": np.mean(rew), "std_reward_tr": np.std(rew), "min_reward_tr": np.min(rew), "max_reward_tr": np.max(rew), "percentile_tr": perc, "iteration": iteration})
 
-        trainExamples = []
-        for e in self.trainExamplesHistory:
-            trainExamples.extend(e)
+    #     trainExamples = []
+    #     for e in self.trainExamplesHistory:
+    #         trainExamples.extend(e)
 
-        # all training examples (not only the last iteration)
-        trainExamples = [(e[0], e[1], e[2]) for e in trainExamples]
+    #     # all training examples (not only the last iteration)
+    #     trainExamples = [(e[0], e[1], e[2]) for e in trainExamples]
 
-        # shuffle examples before training
-        shuffle(trainExamples)
+    #     # shuffle examples before training
+    #     shuffle(trainExamples)
 
-        return trainExamples, perc
+    #     return trainExamples, perc
 
-    def getCheckpointFile(self, iteration):
-        return 'checkpoint_' + str(iteration) + '.pth.tar'
+    # def getCheckpointFile(self, iteration):
+    #     return 'checkpoint_' + str(iteration) + '.pth.tar'
 
-    def saveTrainExamples(self, iteration):
-        folder = self.args.checkpoint
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
-        with open(filename, "wb+") as f:
-            Pickler(f).dump(self.trainExamplesHistory)
-        f.closed
+    # def saveTrainExamples(self, iteration):
+    #     folder = self.args.checkpoint
+    #     if not os.path.exists(folder):
+    #         os.makedirs(folder)
+    #     filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
+    #     with open(filename, "wb+") as f:
+    #         Pickler(f).dump(self.trainExamplesHistory)
+    #     f.closed
 
-    def loadTrainExamples(self):
-        modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
-        examplesFile = modelFile + ".examples"
-        if not os.path.isfile(examplesFile):
-            log.warning(f'File "{examplesFile}" with trainExamples not found!')
-            r = input("Continue? [y|n]")
-            if r != "y":
-                sys.exit()
-        else:
-            log.info("File with trainExamples found. Loading it...")
-            with open(examplesFile, "rb") as f:
-                self.trainExamplesHistory = Unpickler(f).load()
-            log.info('Loading done!')
+    # def loadTrainExamples(self):
+    #     modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
+    #     examplesFile = modelFile + ".examples"
+    #     if not os.path.isfile(examplesFile):
+    #         log.warning(f'File "{examplesFile}" with trainExamples not found!')
+    #         r = input("Continue? [y|n]")
+    #         if r != "y":
+    #             sys.exit()
+    #     else:
+    #         log.info("File with trainExamples found. Loading it...")
+    #         with open(examplesFile, "rb") as f:
+    #             self.trainExamplesHistory = Unpickler(f).load()
+    #         log.info('Loading done!')
 
-            # examples based on the model were already collected (loaded)
-            self.skipFirstSelfPlay = True
+    #         # examples based on the model were already collected (loaded)
+    #         self.skipFirstSelfPlay = True
