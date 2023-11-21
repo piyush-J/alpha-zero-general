@@ -45,10 +45,11 @@ class MCTS():
         """
         canonicalBoard = game.getCanonicalForm(board)
 
-        # Getting % usage of virtual_memory ( 3rd field)
-        print('RAM memory % used:', psutil.virtual_memory()[2])
-        # Getting usage of virtual_memory in GB ( 4th field)
-        print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
+        if verbose:
+            # Getting % usage of virtual_memory ( 3rd field)
+            print('RAM memory % used:', psutil.virtual_memory()[2])
+            # Getting usage of virtual_memory in GB ( 4th field)
+            print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
 
         for _ in range(self.args.numMCTSSims):
             if self.args.debugging: log.info("MCTS Simulation #{}".format(_))
@@ -57,7 +58,8 @@ class MCTS():
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
         non_zero_elems = [(ind_, elem) for ind_, elem in enumerate(counts) if elem != 0]
-        print("Non zero elements in counts: ", non_zero_elems)
+        if verbose:
+            print("Non zero elements in counts: ", non_zero_elems)
         if len(non_zero_elems) == 2:
             log.warning("NO EXPLORATION!!!!")
         
@@ -77,7 +79,7 @@ class MCTS():
         probs = [x / counts_sum for x in counts]
 
         all_data = self.all_logging_data + self.data
-        log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(all_data)}")
+        if self.args.debugging: log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(all_data)}")
         table = wandb.Table(data=all_data, columns = ["level", "Qsa", "best_u", "v"])
         wandb.log({"MCTS Qsa vs tree depth" : wandb.plot.scatter(table,
                                     "level", "Qsa")})

@@ -32,7 +32,8 @@ class Coach():
     def __init__(self, game, nnet, args):
         self.game = game
         self.nnet = nnet
-        self.pnet = self.nnet.__class__(self.game)  # the competitor network
+        if self.nnet is not None:
+            self.pnet = self.nnet.__class__(self.game)  # the competitor network
         self.args = args
         self.all_logging_data = []
         self.nn_iteration = None
@@ -66,7 +67,7 @@ class Coach():
         # Non-leaf nodes
         temp = int(level < self.args.tempThreshold)
         if self.args.debugging: log.info(f"-----------------------------------\nDFS level: {level}")
-        pi = self.mcts.getActionProb(game, board, temp=temp)
+        pi = self.mcts.getActionProb(game, board, temp=temp, verbose=self.args.verbose)
         valids = game.getValidMoves(board)
 
         a = np.random.choice(len(pi), p=pi)

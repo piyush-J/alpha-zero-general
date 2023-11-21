@@ -47,7 +47,7 @@ class Node():
         return list(set(literals_all) - set(self.prior_actions) - set(negated_prior_actions) - set(self.unsat_learnt_actions) - set(negated_unsat_learnt_actions))
 
 
-class MarchPysat():
+class AmsNoMCTS():
 
     def __init__(self, filename="constraints_20_c_100000_2_2_0_final.simp", solver_name="minisat22", recomp=-1, all_cubes=0, n=None, d=None, m=None, o=None) -> None:
         self.filename = filename
@@ -196,12 +196,12 @@ class MarchPysat():
         print("Time taken for cubing: ", round(time.time() - start_time, 3))
         print("Number of nodes: ", self.node_count)
 
-# python march_pysat.py "constraints_19_c_100000_2_2_0_final.simp" -n 20 -m 171 -o "e4_19_debug.cubes"
+# python ams_no_mcts.py "constraints_19_c_100000_2_2_0_final.simp" -d 1 -m 171 -o "e4_19_debug.cubes"
 if __name__ == "__main__":
     st = time.time()
 
-    # march_pysat = MarchPysat(filename="constraints_18_c_100000_2_2_0_final.simp", n=80, m=153)
-    # march_pysat.run_cnc()
+    # ams_no_mcts = AmsNoMCTS(filename="constraints_18_c_100000_2_2_0_final.simp", n=80, m=153)
+    # ams_no_mcts.run_cnc()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", help="filename of the CNF file", type=str)
@@ -216,8 +216,8 @@ if __name__ == "__main__":
 
     print(args)
 
-    march_pysat = MarchPysat(filename=args.filename, solver_name=args.solver_name, recomp=args.recomp, all_cubes=args.all_cubes, n=args.n, d=args.d, m=args.m, o=args.o)
-    march_pysat.run_cnc()
+    ams_no_mcts = AmsNoMCTS(filename=args.filename, solver_name=args.solver_name, recomp=args.recomp, all_cubes=args.all_cubes, n=args.n, d=args.d, m=args.m, o=args.o)
+    ams_no_mcts.run_cnc()
 
     print("Tool runtime: ", round(time.time() - st, 3))
 

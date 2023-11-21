@@ -47,6 +47,7 @@ args_f = {
     'version': 'v1',
 
     'debugging': True,
+    'verbose': True,
     'wandb_logging': False,
 
     'MCTSmode': 0, # mode 0 - no NN, mode 1 - NN with eval_var (no march call), mode 2 - NN with eval_cls (with march call)
@@ -66,6 +67,10 @@ args_f = {
 def main(args_parsed):
     args = dotdict({**args_f, **vars(args_parsed)})
 
+    if args.prod:
+        args['debugging'] = False # force debugging to be False
+        args['verbose'] = False # force verbose to be False
+
     if args.d != -1:
         args['STEP_UPPER_BOUND'] = args_parsed.d
     else:
@@ -78,7 +83,7 @@ def main(args_parsed):
     
     args['MAX_LITERALS'] = args_parsed.m
 
-    print(args)
+    if args.debugging: print(args)
 
     # wandb login
 
@@ -95,25 +100,26 @@ def main(args_parsed):
 
     wandb.config.update(args)
 
-    log.info(f'Loading {KSGame.__name__}...')
+    # log.info(f'Loading {KSGame.__name__}...')
     g = KSGame(args=args, filename=args.filename) 
-    log.info('Loading %s...', ksnn.__name__)
-    nnet = ksnn(g)
+    # log.info('Loading %s...', ksnn.__name__)
+    # nnet = ksnn(g)
+    nnet = None
 
-    if args.load_model:
-        log.info('Loading checkpoint "%s/%s"...', args.load_folder_file[0], args.load_folder_file[1])
-        nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
-    else:
-        log.warning('Not loading a checkpoint!')
+    # if args.load_model:
+    #     log.info('Loading checkpoint "%s/%s"...', args.load_folder_file[0], args.load_folder_file[1])
+    #     nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
+    # else:
+    #     log.warning('Not loading a checkpoint!')
 
-    log.info('Loading the Coach...')
+    if args.debugging: log.info('Loading the Coach...')
     c = Coach(g, nnet, args)
 
-    if args.load_model:
-        log.info("Loading 'trainExamples' from file...")
-        c.loadTrainExamples()
+    # if args.load_model:
+    #     log.info("Loading 'trainExamples' from file...")
+    #     c.loadTrainExamples()
 
-    log.info('Starting the learning process 🎉')
+    # log.info('Starting the learning process 🎉')
 
     if args.MCTSmode == 0:
         c.nolearnMCTS()
@@ -171,6 +177,7 @@ def main(args_parsed):
         # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
 
 if __name__ == "__main__":
+    # python -u main.py "constraints_19_c_100000_2_2_0_final.simp" -d 1 -m 171 -o "e4_19_debug.cubes" -order 19 -prod
     # python -u main.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 3 -varpen 0.1 > cubing_outputs/e4_18_mcts_best_varpen.out 2>&1
     # python -u main.py "constraints_19_c_100000_2_2_0_final.simp" -order 19 -n 20 -m 171 -o "e4_19_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 0.5 -varpen 0.1 > cubing_outputs/e4_19_mcts_best_varpen.out 2>&1
 
@@ -184,12 +191,16 @@ if __name__ == "__main__":
     parser.add_argument("-m", help="only top m variables to be considered for cubing", type=int)
     parser.add_argument("-o", help="output file for cubes")
     
-    parser.add_argument("-cpuct", help="cpuct for MCTS", type=float)
-    parser.add_argument("-numMCTSSims", help="MCTS sims", type=int)
-    parser.add_argument("-varpen", help="Variance penalty factor", type=float)
+    parser.add_argument("-cpuct", help="cpuct for MCTS", type=float, default=10)
+    parser.add_argument("-numMCTSSims", help="MCTS sims", type=int, default=300)
+    parser.add_argument("-varpen", help="Variance penalty factor", type=float, default=0)
+
+    parser.add_argument("-prod", action="store_true", help="production mode") 
 
     args_parsed = parser.parse_args()
-    print(args_parsed)
+    if not args_parsed.prod: print(args_parsed)
+
+    args = parser.parse_args() 
 
     if args_parsed.n == -1 and args_parsed.d == -1:
         print("Either -n or -d must be specified")

@@ -33,7 +33,7 @@ class BoardMode0(Board):
         self.ranked_keys = None
         self.top_five_kv_sorted = None
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
-        print("Maximum metric value: ", self.max_metric_val)
+        if args.verbose: print("Maximum metric value: ", self.max_metric_val)
 
         global pysat_propagate_obj
         pysat_propagate_obj = pysat_propagate
