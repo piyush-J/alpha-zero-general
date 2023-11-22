@@ -57,10 +57,14 @@ class KSGame(Game):
 
     def _make_representation(self):
         if self.args.MCTSmode in [0, 2]:
-            board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict, max_metric_val=self.args.VARS_TO_ELIM**2, pysat_propagate=self.pysat_propagate)
+            if self.args.VARS_TO_ELIM is not None:
+                max_metric_val = self.args.VARS_TO_ELIM**2
+            else:
+                max_metric_val = (self.args.m // 4)**2 # crude estimate of the maximum metric value (TODO: improve this)
+            board = BoardMode0(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict, max_metric_val=max_metric_val, pysat_propagate=self.pysat_propagate)
             board.calculate_march_metrics() # initialize the valid literals, prob, and march_var_score_dict
             return board
-        return Board(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict)
+        return Board(args=self.args, cnf=self.cnf, edge_dict=self.edge_dict, pysat_propagate=self.pysat_propagate)
 
     def get_copy(self):
         return self # copy.deepcopy(self) # TODO: check if deepcopy is required
@@ -87,7 +91,6 @@ class KSGame(Game):
         return new_board
 
     def getValidMoves(self, board):
-        assert not board.is_done()
         valids = [0]*self.getActionSize()
         legalMoves =  [board.lits2var[l] for l in board.get_legal_literals()]
         for x in legalMoves:
@@ -128,10 +131,19 @@ class KSGame(Game):
             return None
         
     def getGameEndedMode0(self, board, eval_cls):
+        board.args.STEP_UPPER_BOUND = board.args.d
         if board.is_done():
             return board.compute_reward(eval_cls)
         else:
             return None
+        
+    def getGameEndedMCTS(self, board):
+        board.args.STEP_UPPER_BOUND = board.args.d + board.args.STEP_UPPER_BOUND_MCTS # because of this hack, don't call is_done() from outside KSLogic or KSGame
+        if board.is_done():
+            return board.compute_reward()
+        else:
+            return None
+
 
     def getCanonicalForm(self, board):
         """

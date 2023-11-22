@@ -45,8 +45,8 @@ class BoardMode0(Board):
         return f"Board- res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}, ranked_keys: {self.ranked_keys}, top_five_kv_sorted: {self.top_five_kv_sorted}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
-        return self.res is None and (self.len_asgn_edge_vars >= self.args.VARS_TO_ELIM or self.step >= self.args.STEP_UPPER_BOUND or len(self.get_legal_literals()) == 0)
-    
+        return self.res is None and ((self.args.VARS_TO_ELIM is not None and self.len_asgn_edge_vars >= self.args.VARS_TO_ELIM) or (self.args.STEP_UPPER_BOUND is not None and self.step >= self.args.STEP_UPPER_BOUND) or len(self.get_legal_literals()) == 0)
+
     def calculate_march_metrics(self):
         if self.args.debugging: log.info(f"Calculating march metrics")
         edge_vars = self.order*(self.order-1)//2 

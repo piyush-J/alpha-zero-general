@@ -65,9 +65,9 @@ class Coach():
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
         # Non-leaf nodes
-        temp = int(level < self.args.tempThreshold)
+        # temp = int(level < self.args.tempThreshold)
         if self.args.debugging: log.info(f"-----------------------------------\nDFS level: {level}")
-        pi = self.mcts.getActionProb(game, board, temp=temp, verbose=self.args.verbose)
+        pi = self.mcts.getActionProb(game, board, temp=0, verbose=self.args.verbose)
         valids = game.getValidMoves(board)
 
         a = np.random.choice(len(pi), p=pi)

@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["constraints_19_c_100000_2_2_0_final.simp", "-order", "19", "-n", "20", "-m", "171", "-o", "e4_19_mcts_best_varpen.cubes", "-numMCTSSims", "300", "-cpuct", "0.5", "-varpen", "0.1"]
+            "args": ["constraints_19_c_100000_2_2_0_final.simp", "-order", "19", "-d", "1", "-m", "171", "-o", "test.cubes", "-numMCTSSims", "300", "-cpuct", "1", "-varpen", "0"]
         }
     ]
 }

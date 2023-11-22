@@ -23,6 +23,7 @@ class MCTS():
         self.nnet = nnet
         self.args = args
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
+        self.Bsa = {}  # stores best values for s,a
         self.Nsa = {}  # stores #times edge s,a was visited
         self.Ns = {}  # stores #times board s was visited
         self.Ps = {}  # stores initial policy (returned by neural net)
@@ -34,7 +35,7 @@ class MCTS():
         self.all_logging_data = all_logging_data
         self.cache_data = {}
 
-    def getActionProb(self, game, board, temp=1, verbose=False):
+    def getActionProb(self, game, board, temp=0, verbose=False):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -57,7 +58,9 @@ class MCTS():
 
         s = game.stringRepresentation(canonicalBoard)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(game.getActionSize())]
-        non_zero_elems = [(ind_, elem) for ind_, elem in enumerate(counts) if elem != 0]
+        maxvals = [self.Bsa[(s, a)] if (s, a) in self.Bsa else 0 for a in range(game.getActionSize())]
+        qvals = [self.Qsa[(s, a)] if (s, a) in self.Qsa else 0 for a in range(game.getActionSize())]
+        non_zero_elems = [(ind_,elem_c,elem_v,elem_q) for ind_, (elem_c,elem_v,elem_q) in enumerate(zip(counts,maxvals,qvals)) if elem_c != 0]
         if verbose:
             print("Non zero elements in counts: ", non_zero_elems)
         if len(non_zero_elems) == 2:
@@ -67,26 +70,27 @@ class MCTS():
         with open(f"cubing_outputs/counts_{self.args.o}.txt", "a") as f:
             f.write(f"{non_zero_elems}\n")
 
-        if temp == 0:
-            bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
+        if temp == 0: # Note that this part is different from the original code - we are using maxvals instead of counts
+            bestAs = np.array(np.argwhere(maxvals == np.max(maxvals))).flatten()
             bestA = np.random.choice(bestAs)
-            probs = [0] * len(counts)
+            probs = [0] * len(maxvals)
             probs[bestA] = 1
             return probs
 
+        # Note: This part is still the same as the original code - we are using counts instead of maxvals
         counts = [x ** (1. / temp) for x in counts]
         counts_sum = float(sum(counts))
         probs = [x / counts_sum for x in counts]
 
-        all_data = self.all_logging_data + self.data
-        if self.args.debugging: log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(all_data)}")
-        table = wandb.Table(data=all_data, columns = ["level", "Qsa", "best_u", "v"])
-        wandb.log({"MCTS Qsa vs tree depth" : wandb.plot.scatter(table,
-                                    "level", "Qsa")})
-        wandb.log({"MCTS best_u vs tree depth" : wandb.plot.scatter(table,
-                                    "level", "best_u")})
-        wandb.log({"MCTS value vs tree depth" : wandb.plot.scatter(table,
-                                    "level", "v")})
+        # all_data = self.all_logging_data + self.data
+        # if self.args.debugging: log.info(f"WANDB LOGGING: Size of self.data = {len(self.data)} and all data = {len(all_data)}")
+        # table = wandb.Table(data=all_data, columns = ["level", "Qsa", "best_u", "v"])
+        # wandb.log({"MCTS Qsa vs tree depth" : wandb.plot.scatter(table,
+        #                             "level", "Qsa")})
+        # wandb.log({"MCTS best_u vs tree depth" : wandb.plot.scatter(table,
+        #                             "level", "best_u")})
+        # wandb.log({"MCTS value vs tree depth" : wandb.plot.scatter(table,
+        #                             "level", "v")})
         return probs
 
     def search(self, game, canonicalBoard, verbose=False, level=0):
@@ -120,13 +124,9 @@ class MCTS():
         if s not in self.Es: # STEP 2: EXPANSION
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
-            self.Es[s] = game.getGameEnded(canonicalBoard)
+            self.Es[s] = game.getGameEndedMCTS(canonicalBoard) # separate for MCTS to avoid calling it end of game if the depth limit is reached, MCTS should keep exploring further
         
-        if self.Es[s] is None and level >= self.args.STEP_UPPER_BOUND_MCTS-1: # level starts at 0
-            # self.Es[s] = canonicalBoard.total_rew # we cannot do this because this is MCTS-dependent termination, not an actual terminating state
-            if verbose:
-                log.info(f"Node is terminal node, reward is {canonicalBoard.total_rew}\n{s}")
-            return canonicalBoard.total_rew
+        # self.Es[s] = canonicalBoard.total_rew # we cannot do this because this is MCTS-dependent termination, not an actual terminating state
 
         if self.Es[s] != None: # STEP 4 (I): BACKPROPAGATION
             # terminal node
@@ -134,12 +134,13 @@ class MCTS():
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
             return self.Es[s]
         
-        if sum(game.getValidMoves(canonicalBoard)) == 0: # TODO: optimize later
+        if sum(game.getValidMoves(canonicalBoard)) == 0: 
+            raise NotImplementedError # TODO: is it possible to reach here?
             # terminal node when you are out of valid moves
-            rew = game.getGameEnded(canonicalBoard) # need to recompute reward - run Solver
-            if verbose:
-                log.info(f"Node is terminal node, reward is {rew}\n{s}")
-            return rew
+            # rew = game.getGameEnded(canonicalBoard) # need to recompute reward - run Solver
+            # if verbose:
+            #     log.info(f"Node is terminal node, reward is {rew}\n{s}")
+            # return rew
 
         if s not in self.Ps: # STEP 3: ROLLOUT or SIMULATION (for MCTSmode != 0, use NN to predcit the value, i.e., the end reward to be backpropagated)
             # leaf node
@@ -250,18 +251,22 @@ class MCTS():
         # if one of them got unsat, the reward would be lower
 
         if (s, a) in self.Qsa: # using (s,a) from the positive-dir of a
+            self.Bsa[(s, a)] = max(self.Bsa[(s, a)], v)
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
             self.Nsa[(s, a)] += 1
 
         else:
+            self.Bsa[(s, a)] = v
             self.Qsa[(s, a)] = v
             self.Nsa[(s, a)] = 1
 
         if (s, comp_a) in self.Qsa: # using (s,a) from the negative-dir of a
+            self.Bsa[(s, comp_a)] = max(self.Bsa[(s, comp_a)], v)
             self.Qsa[(s, comp_a)] = (self.Nsa[(s, comp_a)] * self.Qsa[(s, comp_a)] + v) / (self.Nsa[(s, comp_a)] + 1)
             self.Nsa[(s, comp_a)] += 1
 
         else:
+            self.Bsa[(s, comp_a)] = v
             self.Qsa[(s, comp_a)] = v
             self.Nsa[(s, comp_a)] = 1
 

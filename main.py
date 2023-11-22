@@ -28,7 +28,7 @@ np.random.seed(42)
 args_f = {
     'numIters': 1,           # TODO: Change this to 1000
     'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
-    'tempThreshold': 5,        #
+    # 'tempThreshold': 5,        #
     'updateThreshold': None,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
     # 'numMCTSSims': 300,          # Number of games moves for MCTS to simulate.
@@ -75,12 +75,12 @@ def main(args_parsed):
     if args.d != -1:
         args['STEP_UPPER_BOUND'] = args_parsed.d
     else:
-        args['STEP_UPPER_BOUND'] = args_parsed.n
+        args['STEP_UPPER_BOUND'] = None
     
     if args.n != -1:
         args['VARS_TO_ELIM'] = args_parsed.n
     else:
-        args['VARS_TO_ELIM'] = args_parsed.m
+        args['VARS_TO_ELIM'] = None
     
     args['MAX_LITERALS'] = args_parsed.m
 
@@ -178,7 +178,7 @@ def main(args_parsed):
         # TODO: wandb.save(f"saved_models/{args.model_name}_epc{epoch}_acc{test_acc:.4f}.pt")
 
 if __name__ == "__main__":
-    # python -u main.py "constraints_19_c_100000_2_2_0_final.simp" -d 1 -m 171 -o "e4_19_debug.cubes" -order 19 -prod
+    # python -u main.py "constraints_17_c_100000_2_2_0_final.simp" -d 1 -m 136 -o "test.cubes" -order 17 -prod
     # python -u main.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 3 -varpen 0.1 > cubing_outputs/e4_18_mcts_best_varpen.out 2>&1
     # python -u main.py "constraints_19_c_100000_2_2_0_final.simp" -order 19 -n 20 -m 171 -o "e4_19_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 0.5 -varpen 0.1 > cubing_outputs/e4_19_mcts_best_varpen.out 2>&1
 
