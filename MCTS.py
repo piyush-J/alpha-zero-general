@@ -115,7 +115,7 @@ class MCTS():
 
         if self.args.debugging: log.info(f"MCTS Search at level {level}")
         s = game.stringRepresentation(canonicalBoard)
-        if self.args.debugging: log.info(f"String representation done: {s} with reward {canonicalBoard.total_rew:.4f} (avg: {canonicalBoard.total_rew/(canonicalBoard.step+1e-5):.2f})")
+        if self.args.debugging: log.info(f"String representation done: {s} with reward {canonicalBoard.total_rew:.4f}")
         if self.args.debugging: log.info(canonicalBoard)
 
         if verbose:

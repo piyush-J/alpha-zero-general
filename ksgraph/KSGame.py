@@ -131,14 +131,16 @@ class KSGame(Game):
             return None
         
     def getGameEndedMode0(self, board, eval_cls):
-        board.args.STEP_UPPER_BOUND = board.args.d
+        if board.args.d != -1:
+            board.args.STEP_UPPER_BOUND = board.args.d
         if board.is_done():
             return board.compute_reward(eval_cls)
         else:
             return None
         
     def getGameEndedMCTS(self, board):
-        board.args.STEP_UPPER_BOUND = board.args.d + board.args.STEP_UPPER_BOUND_MCTS # because of this hack, don't call is_done() from outside KSLogic or KSGame
+        if board.args.d != -1:
+            board.args.STEP_UPPER_BOUND = board.args.d + board.args.STEP_UPPER_BOUND_MCTS # because of this hack, don't call is_done() from outside KSLogic or KSGame
         if board.is_done():
             return board.compute_reward()
         else:

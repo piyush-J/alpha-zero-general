@@ -149,7 +149,7 @@ class BoardMode0(Board):
                 exit(0)
                 # return self.total_rew + self.args.STEP_UPPER_BOUND
             elif self.is_fail(): 
-                norm_rew = -1 
+                norm_rew = 0.1 # setting it to a non-zero positive val to avoid best values to be 0, as 0 is also for the illegal moves
             elif self.is_unknown(): # results in unknown using march_cu so heavily penalize and don't go down this path
                 norm_rew = -1
             elif self.is_giveup(): 
