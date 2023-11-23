@@ -197,7 +197,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", help="output file for cubes")
     
     parser.add_argument("-cpuct", help="cpuct for MCTS", type=float, default=10)
-    parser.add_argument("-numMCTSSims", help="MCTS sims", type=int, default=300)
+    parser.add_argument("-numMCTSSims", help="MCTS sims", type=int, default=100)
     parser.add_argument("-varpen", help="Variance penalty factor", type=float, default=0)
 
     parser.add_argument("-prod", action="store_true", help="production mode") 
