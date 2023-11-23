@@ -68,7 +68,7 @@ class MCTS():
         
         # open a file to write the counts
         with open(f"cubing_outputs/counts_{self.args.o}.txt", "a") as f:
-            f.write(f"{non_zero_elems}\n")
+            f.write(f"{s}: {non_zero_elems}\n")
 
         if temp == 0: # Note that this part is different from the original code - we are using maxvals instead of counts
             bestAs = np.array(np.argwhere(maxvals == np.max(maxvals))).flatten()

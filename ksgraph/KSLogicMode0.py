@@ -32,6 +32,10 @@ class BoardMode0(Board):
         self.len_asgn_edge_vars = None
         self.ranked_keys = None
         self.top_five_kv_sorted = None
+        self.rank_from_parent = 0
+        self.ranks_till_now = []
+        self.var_elim_till_now = []
+
         self.max_metric_val = max_metric_val # maximum possible value of the metric (unweighted)
         if args.verbose: print("Maximum metric value: ", self.max_metric_val)
 
@@ -42,7 +46,7 @@ class BoardMode0(Board):
         cnf_obj = cnf
 
     def __str__(self):
-        return f"Board- res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}, ranked_keys: {self.ranked_keys}, top_five_kv_sorted: {self.top_five_kv_sorted}"
+        return f"Board- rank_from_parent: {self.rank_from_parent}, res: {self.res}, step: {self.step}, vars_elim: {self.len_asgn_edge_vars}, total_rew: {self.total_rew:.3f}, prior_actions: {self.prior_actions}, ranked_keys: {self.ranked_keys}, top_five_kv_sorted: {self.top_five_kv_sorted}"
 
     def is_giveup(self): # give up if we have reached the upper bound on the number of steps or if there are only 0 or extra lits left
         return self.res is None and ((self.args.VARS_TO_ELIM is not None and self.len_asgn_edge_vars >= self.args.VARS_TO_ELIM) or (self.args.STEP_UPPER_BOUND is not None and self.step >= self.args.STEP_UPPER_BOUND) or len(self.get_legal_literals()) == 0)
@@ -121,6 +125,7 @@ class BoardMode0(Board):
         new_state.ranked_keys = None
         new_state.len_asgn_edge_vars = None
         new_state.top_five_kv_sorted = None
+        new_state.rank_from_parent = 0
 
         new_state.step += 1
         chosen_literal = [new_state.var2lits[action]]
@@ -130,12 +135,15 @@ class BoardMode0(Board):
         assert self.march_pos_lit_score_dict is not None
         try:
             current_metric_val = self.march_pos_lit_score_dict[abs(chosen_literal[0])]
+            new_state.rank_from_parent = self.ranked_keys.index(abs(chosen_literal[0])) + 1
+            new_state.ranks_till_now.append(new_state.rank_from_parent)
         except KeyError:
             current_metric_val = self.march_pos_lit_score_dict_all[abs(chosen_literal[0])]
         # reward is the propagation rate
         new_state.total_rew = current_metric_val / new_state.step
         # proportional to the number of literals that are assigned (eval_var), inversely proportional to the number of steps
         new_state.calculate_march_metrics()
+        new_state.var_elim_till_now.append(new_state.len_asgn_edge_vars)
         if self.args.debugging: log.info(f"Calculated march metrics")
         return new_state
 
