@@ -74,10 +74,10 @@ class Coach():
 
         a = np.random.choice(len(pi), p=pi)
         if self.args.debugging: 
-            print(f"a: {a}, board.var2lits[a]: {board.var2lits[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
+            print(f"a: {a}, board.var2lit[a]: {board.var2lit[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
             print("Board: ", board)
         try: 
-            march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
+            march_rank = board.ranked_keys.index(abs(board.var2lit[a])) + 1
         except Exception as e: # debug based on file (e4_20_mcts_nod_s300_c3_pen02-cdr1138-14664123.out) in Debug dir in Git Large Files
             march_rank = -1
             print("Exception: ", e)
@@ -144,7 +144,7 @@ class Coach():
 
             log.info("Saved cubes to file")
 
-            all_cube_elims = [cubes[0][-1] if cubes[0][-1] is not None else self.args.m for cubes in all_cubes_verbose]
+            all_cube_elims = [cubes[0][-1] for cubes in all_cubes_verbose if cubes[0][-1] is not None]
             arena_cubes_v = [list(map(str, l)) for l in all_cubes_verbose]
             f = open(self.args.o+"_verbose", "w")
             f.writelines(["a " + " ".join(l) + f" 0;" + " ".join(lv) + "\n" for l, lv in zip(arena_cubes, arena_cubes_v)])
@@ -214,7 +214,7 @@ class Coach():
     #         nmcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
 
     #         log.info('PITTING AGAINST PREVIOUS VERSION')
-    #         random_action_agent = lambda game, board: np.random.choice([board.lits2var[l] for l in board.get_legal_literals()])
+    #         random_action_agent = lambda game, board: np.random.choice([board.lit2var[l] for l in board.get_legal_literals()])
     #         arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
     #                                 lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc, i)#, display=print)
     #         prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False, vsRandom=None) # pass random_action_agent

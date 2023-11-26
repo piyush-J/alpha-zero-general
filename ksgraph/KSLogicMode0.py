@@ -61,7 +61,7 @@ class BoardMode0(Board):
 
         if res == 0: # refuted node
             self.res = 0 
-            # len_asgn_edge_vars = self.args.VARS_TO_ELIM
+            # len_asgn_edge_vars with be None
 
         self.len_asgn_edge_vars = len_asgn_edge_vars
 
@@ -78,7 +78,7 @@ class BoardMode0(Board):
         prob = [0.0 for _ in range(edge_vars*2+1)]
         for l in valid_pos_literals:
             prob[l] = march_pos_lit_score_dict[l]
-            prob[self.lits2var[-l]] = march_pos_lit_score_dict[l]
+            prob[self.lit2var[-l]] = march_pos_lit_score_dict[l]
         
         if sum(prob) == 0:
             # uniform distribution
@@ -114,7 +114,7 @@ class BoardMode0(Board):
         
     def execute_move(self, action):
         assert self.is_done() == False
-        # if action not in [self.lits2var[l] for l in self.get_legal_literals()]:
+        # if action not in [self.lit2var[l] for l in self.get_legal_literals()]:
         #     print("Illegal move!")
         if self.args.debugging: log.info(f"Executing action {action}")
         new_state = copy.deepcopy(self)
@@ -128,7 +128,7 @@ class BoardMode0(Board):
         new_state.rank_from_parent = 0
 
         new_state.step += 1
-        chosen_literal = [new_state.var2lits[action]]
+        chosen_literal = [new_state.var2lit[action]]
         new_state.prior_actions.append(chosen_literal)
         # new_state.cnf.append(chosen_literal) # append to the cnf object
         # collecting from the parent node's dict; TODO: not considering direction, so choosing the +ve one (abs)

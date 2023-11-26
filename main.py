@@ -182,10 +182,6 @@ if __name__ == "__main__":
     # python -u main.py "constraints_18_c_100000_2_2_0_final.simp" -order 18 -n 20 -m 153 -o "e4_18_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 3 -varpen 0.1 > cubing_outputs/e4_18_mcts_best_varpen.out 2>&1
     # python -u main.py "constraints_19_c_100000_2_2_0_final.simp" -order 19 -n 20 -m 171 -o "e4_19_mcts_best_varpen.cubes" -numMCTSSims 300 -cpuct 0.5 -varpen 0.1 > cubing_outputs/e4_19_mcts_best_varpen.out 2>&1
 
-    # crate cubing_outputs folder if it doesn't exist
-    if not os.path.exists("cubing_outputs"):
-        os.makedirs("cubing_outputs")
-
     start_time_tool = time.time()
 
     parser = argparse.ArgumentParser()
@@ -210,6 +206,10 @@ if __name__ == "__main__":
     if args_parsed.n == -1 and args_parsed.d == -1:
         print("Either -n or -d must be specified")
         exit()
+
+    # create cubing_outputs folder if it doesn't exist
+    if not os.path.exists(f"cubing_outputs/{args.o}"):
+        os.makedirs(f"cubing_outputs/{args.o}")
 
     main(args_parsed)
 

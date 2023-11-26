@@ -158,7 +158,7 @@ class CubeArena():
         # visited.add(v) # no need if we are using a tree
 
         for literal in cube:
-            action = board.lits2var[int(literal)]
+            action = board.lit2var[int(literal)]
             
             # verify that the action is valid in the current board and the game is not over
             # valids = game.getValidMoves(board)
