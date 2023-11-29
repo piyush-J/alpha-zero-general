@@ -131,16 +131,26 @@ class KSGame(Game):
             return None
         
     def getGameEndedMode0(self, board, eval_cls):
-        if board.args.d != -1:
-            board.args.STEP_UPPER_BOUND = board.args.d
+        if board.args.d != -1: # reset after setting in getGameEndedMCTS
+            board.args['STEP_UPPER_BOUND'] = board.args.d
+        else:
+            board.args['STEP_UPPER_BOUND'] = None
+        
+        if board.args.n != -1: # reset after setting in getGameEndedMCTS
+            board.args['VARS_TO_ELIM'] = board.args.n
+        else:
+            board.args['VARS_TO_ELIM'] = None
+
         if board.is_done():
             return board.compute_reward(eval_cls)
         else:
             return None
         
     def getGameEndedMCTS(self, board):
-        if board.args.d != -1:
+        if board.args.nMCTSEndOfG==-1 and board.args.d != -1: # if nMCTSEndOfG is not set and -d param exists; if d param doesn't exist then getGameEndedMCTS is same as getGameEnded
             board.args.STEP_UPPER_BOUND = board.args.d + board.args.STEP_UPPER_BOUND_MCTS # because of this hack, don't call is_done() from outside KSLogic or KSGame
+        elif board.args.nMCTSEndOfG!=-1:
+            board.args.VARS_TO_ELIM = board.args.nMCTSEndOfG # replace with the final intended cutoff criteria in the iterative cubing process
         if board.is_done():
             return board.compute_reward()
         else:
