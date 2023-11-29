@@ -67,8 +67,9 @@ class MCTS():
             log.warning("NO EXPLORATION!!!!")
         
         # open a file to write the counts
-        with open(f"cubing_outputs/counts_{self.args.o}.txt", "a") as f:
-            f.write(f"{non_zero_elems}\n")
+        if self.args.debugging:
+            with open(f"cubing_outputs/{self.args.o}_counts.txt", "a") as f:
+                f.write(f"{s}: {non_zero_elems}\n")
 
         if temp == 0: # Note that this part is different from the original code - we are using maxvals instead of counts
             bestAs = np.array(np.argwhere(maxvals == np.max(maxvals))).flatten()
@@ -124,7 +125,7 @@ class MCTS():
         if s not in self.Es: # STEP 2: EXPANSION
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
-            self.Es[s] = game.getGameEndedMCTS(canonicalBoard) # separate for MCTS to avoid calling it end of game if the depth limit is reached, MCTS should keep exploring further
+            self.Es[s] = game.getGameEnded(canonicalBoard) # separate for MCTS to avoid calling it end of game if the depth limit is reached, MCTS should keep exploring further
         
         # self.Es[s] = canonicalBoard.total_rew # we cannot do this because this is MCTS-dependent termination, not an actual terminating state
 
@@ -132,6 +133,11 @@ class MCTS():
             # terminal node
             if verbose:
                 log.info(f"Node is terminal node, reward is {self.Es[s]}\n{s}")
+            
+            if self.args.debugging:
+                with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
+                    f.write(f"{s}: {self.Es[s]} ({canonicalBoard.var_elim_till_now}, {self.Es[s]*canonicalBoard.step*canonicalBoard.max_metric_val})\n")
+
             return self.Es[s]
         
         if sum(game.getValidMoves(canonicalBoard)) == 0: 
@@ -170,6 +176,11 @@ class MCTS():
                 self.Ps[s] /= np.sum(self.Ps[s])
 
             self.Ns[s] = 0
+
+            if self.args.debugging:
+                with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
+                    f.write(f"{s}: {v} ({canonicalBoard.var_elim_till_now}, {v*canonicalBoard.step*canonicalBoard.max_metric_val})\n")
+
             return v # STEP 4 (II): BACKPROPAGATION
 
         valids = game.getValidMoves(canonicalBoard)
@@ -251,22 +262,36 @@ class MCTS():
         # if one of them got unsat, the reward would be lower
 
         if (s, a) in self.Qsa: # using (s,a) from the positive-dir of a
+            max_found = v >= self.Bsa[(s, a)]
             self.Bsa[(s, a)] = max(self.Bsa[(s, a)], v)
+            if self.args.debugging:
+                with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
+                    f.write(f"{s},{canonicalBoard.var2lit[a]}: {self.Bsa[(s, a)]} {'(max)' if max_found else ''}\n")
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
             self.Nsa[(s, a)] += 1
 
         else:
             self.Bsa[(s, a)] = v
+            if self.args.debugging:
+                with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
+                    f.write(f"{s},{canonicalBoard.var2lit[a]}: {self.Bsa[(s, a)]} (max)\n")
             self.Qsa[(s, a)] = v
             self.Nsa[(s, a)] = 1
 
         if (s, comp_a) in self.Qsa: # using (s,a) from the negative-dir of a
+            max_found = v >= self.Bsa[(s, comp_a)]
             self.Bsa[(s, comp_a)] = max(self.Bsa[(s, comp_a)], v)
+            if self.args.debugging:
+                with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
+                    f.write(f"{s},{canonicalBoard.var2lit[comp_a]}: {self.Bsa[(s, comp_a)]} {'(max)' if max_found else ''}\n")
             self.Qsa[(s, comp_a)] = (self.Nsa[(s, comp_a)] * self.Qsa[(s, comp_a)] + v) / (self.Nsa[(s, comp_a)] + 1)
             self.Nsa[(s, comp_a)] += 1
 
         else:
             self.Bsa[(s, comp_a)] = v
+            if self.args.debugging:
+                with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
+                    f.write(f"{s},{canonicalBoard.var2lit[comp_a]}: {self.Bsa[(s, comp_a)]} (max)\n")
             self.Qsa[(s, comp_a)] = v
             self.Nsa[(s, comp_a)] = 1
 
@@ -274,4 +299,7 @@ class MCTS():
         self.data.append([level, self.Qsa[s,comp_a], cur_best, v])
 
         self.Ns[s] += 1
+        if self.args.debugging:
+            with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
+                f.write(f"{s}: {v}\n")
         return v

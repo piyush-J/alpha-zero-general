@@ -38,8 +38,8 @@ class Board:
         literals_neg = [-l for l in literals_pos]
         literals_all = literals_pos + literals_neg
         vars_all = [self.args.MAX_LITERALS + (-c) if c<0 else c for c in literals_all]
-        self.lits2var = dict(zip(literals_all, vars_all))
-        self.var2lits = dict(zip(vars_all, literals_all))
+        self.lit2var = dict(zip(literals_all, vars_all))
+        self.var2lit = dict(zip(vars_all, literals_all))
 
         global pysat_propagate_obj
         pysat_propagate_obj = pysat_propagate
@@ -80,15 +80,15 @@ class Board:
         return counters
     
     def get_complement_action(self, action): # action is a var
-        action_lits = self.var2lits[action]
+        action_lits = self.var2lit[action]
         action_lits_comp = -action_lits
-        action_comp = self.lits2var[action_lits_comp]
+        action_comp = self.lit2var[action_lits_comp]
         assert action_comp != action and action_comp > 0
         return action_comp # returned action is a var
         
     def get_state(self):
         prior_actions = list(itertools.chain.from_iterable(self.prior_actions)) # flatten the list
-        prior_actions = [self.lits2var[i] for i in prior_actions] # treat the negative literals as a new literal (for convenient MCTS action space)
+        prior_actions = [self.lit2var[i] for i in prior_actions] # treat the negative literals as a new literal (for convenient MCTS action space)
         # pre-padding to keep the last self.args.STATE_SIZE actions with the most recent one always at the end
         prior_actions_padded = [0]*(self.args.STATE_SIZE-len(prior_actions)) + prior_actions[-self.args.STATE_SIZE:] # pad the list with 0s
         return np.array(prior_actions_padded) # literals are mapped to vars
@@ -125,13 +125,13 @@ class Board:
         
     def execute_move(self, action):
         assert self.is_done() == False
-        # if action not in [self.lits2var[l] for l in self.get_legal_literals()]:
+        # if action not in [self.lit2var[l] for l in self.get_legal_literals()]:
         #     print("Illegal move!")
         new_state = copy.deepcopy(self)
 
         new_state.step += 1
-        chosen_literal = [new_state.var2lits[action]]
-        new_state.prior_actions.append(new_state.var2lits[action])
+        chosen_literal = [new_state.var2lit[action]]
+        new_state.prior_actions.append(new_state.var2lit[action])
         
         with Solver(bootstrap_with=new_state.cnf()) as solver:
             out = solver.propagate(assumptions=chosen_literal)

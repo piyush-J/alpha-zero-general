@@ -74,7 +74,8 @@ class MarchPysatPropagate:
         len_asgn_edge_vars = len(set(asgn1).intersection(set(self.literals_all))) # number of assigned edge variables
 
         # check for refutation
-        if not not_unsat1:
+        if not not_unsat1: # on second thought, this should never happen because FLE is being used and len(all_lit_rew) == 0 will be caught before this
+            assert False, "Refutation found in the parent node"
             node.refuted = True
             node.reward = 1.0 # max reward
             return 0, None, {k: 0 for k in range(1, self.m+1)} # pass an empty dict

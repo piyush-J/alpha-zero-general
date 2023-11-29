@@ -42,7 +42,7 @@ class Coach():
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
         self.leaf_counter = 0
 
-    def DFSUtil(self, game, board, level, trainExamples, all_cubes):
+    def DFSUtil(self, game, board, level, trainExamples, all_cubes, all_cubes_verbose):
         # TODO: Incorporate canonicalBoard & symmetry appropriately when required in the future
         # canonicalBoard = game.getCanonicalForm(board)
         # sym = game.getSymmetries(canonicalBoard, pi)
@@ -58,9 +58,11 @@ class Coach():
             #     log.info("March said UNSAT --- skipping this cube (not adding to file)")
             # else:
             all_cubes.append(flattened_list) # adding all cubes
+            all_cubes_verbose.append([board.var_elim_till_now,board.ranks_till_now])
             self.leaf_counter += 1
             if self.args.debugging:
                 log.info(f"Leaf node: {self.leaf_counter} with reward = {reward_now} and state: {board}")
+                log.info(f"Vars eliminated till now: {board.var_elim_till_now}; Ranks till now: {board.ranks_till_now}")
             return reward_now # only leaves have rewards & leaves don't have neighbors
         else: # None
             reward_now = 0 # initialize reward for non-leaf nodes
@@ -72,10 +74,10 @@ class Coach():
 
         a = np.random.choice(len(pi), p=pi)
         if self.args.debugging: 
-            print(f"a: {a}, board.var2lits[a]: {board.var2lits[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
+            print(f"a: {a}, board.var2lit[a]: {board.var2lit[a]}, board.ranked_keys: {board.ranked_keys[:10]}")
             print("Board: ", board)
         try: 
-            march_rank = board.ranked_keys.index(abs(board.var2lits[a])) + 1
+            march_rank = board.ranked_keys.index(abs(board.var2lit[a])) + 1
         except Exception as e: # debug based on file (e4_20_mcts_nod_s300_c3_pen02-cdr1138-14664123.out) in Debug dir in Git Large Files
             march_rank = -1
             print("Exception: ", e)
@@ -101,7 +103,7 @@ class Coach():
         assert valids[a] and valids[comp_a], "Invalid action chosen by MCTS"
 
         for game_n, neighbour in zip((game_copy_dir1, game_copy_dir2), (next_s_dir1, next_s_dir2)): 
-            reward_now += self.DFSUtil(game_n, neighbour, level+1, trainExamples, all_cubes)
+            reward_now += self.DFSUtil(game_n, neighbour, level+1, trainExamples, all_cubes, all_cubes_verbose)
         reward_now = reward_now/2 # average reward of the two children
         
         trainExamples.append([board.get_state(), pi, reward_now]) # after all children are visited, add a reward to the current node
@@ -122,11 +124,12 @@ class Coach():
         start_time = time.time()
         trainExamples = []
         all_cubes = []
+        all_cubes_verbose = []
         game = self.game.get_copy()
         board = game.getInitBoard()
 
         self.leaf_counter = 0
-        r = self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes)
+        r = self.DFSUtil(game, board, level=1, trainExamples=trainExamples, all_cubes=all_cubes, all_cubes_verbose=all_cubes_verbose)
 
         time_elapsed = time.time() - start_time
         print("Time taken for cubing: ", round(time_elapsed, 3))
@@ -140,10 +143,21 @@ class Coach():
             f.close()
 
             log.info("Saved cubes to file")
+
+            all_cube_elims = [cubes[0][-1] for cubes in all_cubes_verbose if cubes[0][-1] is not None]
+            arena_cubes_v = [list(map(str, l)) for l in all_cubes_verbose]
+            f = open(self.args.o+"_verbose", "w")
+            f.writelines(["a " + " ".join(l) + f" 0;" + " ".join(lv) + "\n" for l, lv in zip(arena_cubes, arena_cubes_v)])
+            f.write(f"Cube eliminations - {all_cube_elims}\nMax: {max(all_cube_elims):.2f}, Mean: {np.mean(all_cube_elims):.2f}, Std: {np.std(all_cube_elims):.2f}")
+            f.close()
+
+            log.info("Saved cubes (verbose) to file")
+
             print("Reward: ", r)
-            with open('trainExamples.pkl', 'wb') as f:
-                pickle.dump(trainExamples, f)
-            print("Saved Training examples to trainExamples.pkl")
+            # with open('trainExamples.pkl', 'wb') as f: # For NN
+            #     pickle.dump(trainExamples, f)
+            # print("Saved Training examples to trainExamples.pkl")
+
         return trainExamples
 
     def nolearnMCTS(self):
@@ -200,7 +214,7 @@ class Coach():
     #         nmcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
 
     #         log.info('PITTING AGAINST PREVIOUS VERSION')
-    #         random_action_agent = lambda game, board: np.random.choice([board.lits2var[l] for l in board.get_legal_literals()])
+    #         random_action_agent = lambda game, board: np.random.choice([board.lit2var[l] for l in board.get_legal_literals()])
     #         arena = PlanningArena(lambda game, board: np.argmax(pmcts.getActionProb(game, board, verbose=False, temp=0)),
     #                                 lambda game, board: np.argmax(nmcts.getActionProb(game, board, verbose=False, temp=0)), self.game, perc, i)#, display=print)
     #         prewards, nrewards = arena.playGames(self.args.arenaCompare, verbose=False, vsRandom=None) # pass random_action_agent
