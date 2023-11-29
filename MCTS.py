@@ -125,7 +125,7 @@ class MCTS():
         if s not in self.Es: # STEP 2: EXPANSION
             if verbose:
                 log.info(f"Node not yet seen\n{s}")
-            self.Es[s] = game.getGameEnded(canonicalBoard) # separate for MCTS to avoid calling it end of game if the depth limit is reached, MCTS should keep exploring further
+            self.Es[s] = game.getGameEndedMCTS(canonicalBoard) # separate for MCTS to avoid calling it end of game if the depth limit is reached, MCTS should keep exploring further
         
         # self.Es[s] = canonicalBoard.total_rew # we cannot do this because this is MCTS-dependent termination, not an actual terminating state
 
