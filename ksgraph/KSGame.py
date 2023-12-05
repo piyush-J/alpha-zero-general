@@ -132,14 +132,14 @@ class KSGame(Game):
         
     def getGameEndedMode0(self, board, eval_cls):
         if board.args.d != -1: # reset after setting in getGameEndedMCTS
-            board.args['STEP_UPPER_BOUND'] = board.args.d
+            board.args.STEP_UPPER_BOUND = board.args.d
         else:
-            board.args['STEP_UPPER_BOUND'] = None
+            board.args.STEP_UPPER_BOUND = None
         
         if board.args.n != -1: # reset after setting in getGameEndedMCTS
-            board.args['VARS_TO_ELIM'] = board.args.n
+            board.args.VARS_TO_ELIM = board.args.n
         else:
-            board.args['VARS_TO_ELIM'] = None
+            board.args.VARS_TO_ELIM = None
 
         if board.is_done():
             return board.compute_reward(eval_cls)
