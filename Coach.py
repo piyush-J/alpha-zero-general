@@ -144,14 +144,15 @@ class Coach():
 
             log.info("Saved cubes to file")
 
-            all_cube_elims = [cubes[0][-1] for cubes in all_cubes_verbose if cubes[0][-1] is not None]
-            arena_cubes_v = [list(map(str, l)) for l in all_cubes_verbose]
-            f = open(self.args.o+"_verbose", "w")
-            f.writelines(["a " + " ".join(l) + f" 0;" + " ".join(lv) + "\n" for l, lv in zip(arena_cubes, arena_cubes_v)])
-            f.write(f"Cube eliminations - {all_cube_elims}\nMax: {max(all_cube_elims):.2f}, Mean: {np.mean(all_cube_elims):.2f}, Std: {np.std(all_cube_elims):.2f}")
-            f.close()
+            if self.args.debugging:
+                all_cube_elims = [cubes[0][-1] for cubes in all_cubes_verbose if cubes[0][-1] is not None]
+                arena_cubes_v = [list(map(str, l)) for l in all_cubes_verbose]
+                f = open(self.args.o+"_verbose", "w")
+                f.writelines(["a " + " ".join(l) + f" 0;" + " ".join(lv) + "\n" for l, lv in zip(arena_cubes, arena_cubes_v)])
+                f.write(f"Cube eliminations - {all_cube_elims}\nMax: {max(all_cube_elims):.2f}, Mean: {np.mean(all_cube_elims):.2f}, Std: {np.std(all_cube_elims):.2f}")
+                f.close()
 
-            log.info("Saved cubes (verbose) to file")
+                log.info("Saved cubes (verbose) to file")
 
             print("Reward: ", r)
             # with open('trainExamples.pkl', 'wb') as f: # For NN
