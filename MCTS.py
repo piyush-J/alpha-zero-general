@@ -179,7 +179,7 @@ class MCTS():
 
             if self.args.debugging:
                 with open(f"cubing_outputs/{self.args.o}_all_Bsa_scores.txt", "a") as f:
-                    f.write(f"{s}: {v} ({canonicalBoard.var_elim_till_now}, {v*canonicalBoard.step*canonicalBoard.max_metric_val})\n")
+                    f.write(f"{s}: {v} ({canonicalBoard.var_elim_till_now}, {v*canonicalBoard.max_metric_val})\n")
 
             return v # STEP 4 (II): BACKPROPAGATION
 

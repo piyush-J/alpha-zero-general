@@ -118,7 +118,7 @@ class MarchPysatPropagate:
         # combine the rewards of the positive and negative literals
         for literal in valid_cubing_lits:
             if literal > 0:
-                all_var_rew[literal] = (all_lit_rew[literal] * all_lit_rew[-literal]) + all_lit_rew[literal] + all_lit_rew[-literal]
+                all_var_rew[literal] = (all_lit_rew[literal] * all_lit_rew[-literal])/((len(node.prior_actions)+1)**2) + all_lit_rew[literal]/(len(node.prior_actions)+1) + all_lit_rew[-literal]/(len(node.prior_actions)+1)
 
         # get the key (var) of the best value (eval_var)
         next_best_var = max(all_var_rew.items(), key=operator.itemgetter(1))[0]

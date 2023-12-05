@@ -140,7 +140,7 @@ class BoardMode0(Board):
         except KeyError:
             current_metric_val = self.march_pos_lit_score_dict_all[abs(chosen_literal[0])]
         # reward is the propagation rate
-        new_state.total_rew = current_metric_val / new_state.step
+        new_state.total_rew = current_metric_val # step is divided during the metric calculation
         # proportional to the number of literals that are assigned (eval_var), inversely proportional to the number of steps
         new_state.calculate_march_metrics()
         new_state.var_elim_till_now.append(new_state.len_asgn_edge_vars)
