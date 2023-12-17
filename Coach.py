@@ -37,7 +37,7 @@ class Coach():
         self.args = args
         self.all_logging_data = []
         self.nn_iteration = None
-        self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)
+        self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration, cache_data=None)
         self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
         self.leaf_counter = 0
@@ -69,6 +69,7 @@ class Coach():
         # Non-leaf nodes
         # temp = int(level < self.args.tempThreshold)
         if self.args.debugging: log.info(f"-----------------------------------\nDFS level: {level}")
+        self.mcts.resetMCTSdict() # reset the MCTS state dict for each node otherwise the exploration gets much deeper
         pi = self.mcts.getActionProb(game, board, temp=0, verbose=self.args.verbose)
         valids = game.getValidMoves(board)
 
@@ -162,7 +163,7 @@ class Coach():
         return trainExamples
 
     def nolearnMCTS(self):
-        self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration)  # reset search tree every episode
+        self.mcts = MCTS(self.nnet, self.args, self.all_logging_data, self.nn_iteration, cache_data=None)  # reset search tree every episode
         # if os.path.exists("mcts_cache.pkl"):
         #     with open('mcts_cache.pkl', 'rb') as f:
         #         self.mcts.cache_data = pickle.load(f)

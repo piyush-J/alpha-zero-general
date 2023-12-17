@@ -17,7 +17,7 @@ class MCTS():
     This class handles the MCTS tree.
     """
 
-    def __init__(self, nnet, args, all_logging_data, nn_iteration):
+    def __init__(self, nnet, args, all_logging_data, nn_iteration, cache_data):
         # self.game = game.get_copy()
         self.nn_iteration = nn_iteration
         self.nnet = nnet
@@ -33,7 +33,21 @@ class MCTS():
 
         self.data = []
         self.all_logging_data = all_logging_data
-        self.cache_data = {}
+        if cache_data is None:
+            self.cache_data = {}
+        else:
+            self.cache_data = cache_data
+
+    def resetMCTSdict(self):
+        self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
+        self.Bsa = {}  # stores best values for s,a
+        self.Nsa = {}  # stores #times edge s,a was visited
+        self.Ns = {}  # stores #times board s was visited
+        self.Ps = {}  # stores initial policy (returned by neural net)
+
+        self.Es = {}  # stores game.getGameEnded ended for board s
+        # self.Vs = {}  # stores game.getValidMoves for board s - dynamic because of sat_unsat_actions
+
 
     def getActionProb(self, game, board, temp=0, verbose=False):
         """
