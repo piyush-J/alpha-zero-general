@@ -2,7 +2,7 @@ import Arena
 from MCTS import MCTS
 from tictactoe.TicTacToeGame import TicTacToeGame
 from tictactoe.TicTacToePlayers import *
-from tictactoe.keras.NNet import NNetWrapper as NNet
+from tictactoe.pytorch.NNet import NNetWrapper as NNet
 
 import numpy as np
 from utils import *
@@ -32,7 +32,7 @@ n1 = NNet(g)
 # if mini_tictactoe:
 #     n1.load_checkpoint('./pretrained_models/tictactoe/keras/','6x100x25_best.pth.tar')
 # else:
-n1.load_checkpoint('./temp','best.h5')
+n1.load_checkpoint('./temp','best.pth.tar')
 args1 = dotdict({'numMCTSSims': 50, 'cpuct':1.0})
 mcts1 = MCTS(g, n1, args1)
 n1p = lambda x: np.argmax(mcts1.getActionProb(x, temp=0))
@@ -41,7 +41,7 @@ if human_vs_cpu:
     player2 = hp
 else:
     n2 = NNet(g)
-    n2.load_checkpoint('./temp', 'best.h5')
+    n2.load_checkpoint('./temp', 'best.pth.tar')
     args2 = dotdict({'numMCTSSims': 50, 'cpuct': 1.0})
     mcts2 = MCTS(g, n2, args2)
     n2p = lambda x: np.argmax(mcts2.getActionProb(x, temp=0))
