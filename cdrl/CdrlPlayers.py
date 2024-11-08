@@ -1,14 +1,5 @@
 import numpy as np
 
-"""
-Random and Human-ineracting players for the game of TicTacToe.
-
-Author: Evgeny Tyurin, github.com/evg-tyurin
-Date: Jan 5, 2018.
-
-Based on the OthelloPlayers by Surag Nair.
-
-"""
 class RandomPlayer():
     def __init__(self, game):
         self.game = game

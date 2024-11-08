@@ -2,19 +2,10 @@ from __future__ import print_function
 import sys
 sys.path.append('..')
 from Game import Game
-from .TicTacToeLogic import Board
+from .CdrlLogic import Board
 import numpy as np
 
-"""
-Game class implementation for the game of TicTacToe.
-Based on the OthelloGame then getGameEnded() was adapted to new rules.
-
-Author: Evgeny Tyurin, github.com/evg-tyurin
-Date: Jan 5, 2018.
-
-Based on the OthelloGame by Surag Nair.
-"""
-class TicTacToeGame(Game):
+class CdrlGame(Game):
     def __init__(self, n=3):
         self.n = n # because it is 3x3
 
@@ -29,18 +20,19 @@ class TicTacToeGame(Game):
 
     def getActionSize(self):
         # return number of actions
-        return self.n*self.n + 1 # 9x9 cells + 1 pass
+        # return self.n*self.n + 1 # 9x9 cells + 1 pass
 
-    def getNextState(self, board, player, action):
+        # 2^n possible moves
+        return 2**self.n # [0,0,0], [0,0,1], .., [1,1,1]
+
+    def getNextState(self, board, action):
         # if player takes action on board, return next (board,player)
         # action must be a valid move
-        if action == self.n*self.n:
-            return (board, -player) # if pass, return the board and change the player
         b = Board(self.n)
         b.pieces = np.copy(board)
-        move = (int(action/self.n), action%self.n) # convert action (1-D) to move (2-D)
-        b.execute_move(move, player)
-        return (b.pieces, -player)
+        move = [int(x) for x in list(np.binary_repr(action, width=self.n))] # convert 0 to [0,0,0], 1 to [0,0,1], .., 7 to [1,1,1]
+        b.execute_move(move)
+        return b.pieces
 
     def getValidMoves(self, board, player):
         # return a fixed size binary vector

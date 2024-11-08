@@ -12,7 +12,7 @@ from NeuralNet import NeuralNet
 import torch
 import torch.optim as optim
 
-from .TicTacToeNNet import TicTacToeNNet as onnet
+from .CdrlNNet import CdrlNNet as onnet
 
 args = dotdict({
     'lr': 0.001,
