@@ -15,9 +15,9 @@ class CdrlNNet(nn.Module):
         self.args = args
 
         super(CdrlNNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, args.num_channels, 3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1) 
+        self.conv1 = nn.Conv2d(1, args.num_channels, 2, stride=1)
+        self.conv2 = nn.Conv2d(args.num_channels, args.num_channels, 2, stride=1)
+        # self.conv3 = nn.Conv2d(args.num_channels, args.num_channels, 3, stride=1) 
 
         self.bn1 = nn.BatchNorm2d(args.num_channels)
         self.bn2 = nn.BatchNorm2d(args.num_channels)
@@ -35,11 +35,16 @@ class CdrlNNet(nn.Module):
 
     def forward(self, s):
         # s: batch_size x board_x x board_y
+        # s = F.pad(s, (0, self.board_y - s.size(2), 0, self.board_x - s.size(1)), "constant", -1)
+        # print("s after pad: ", s.shape)
         s = s.view(-1, 1, self.board_x, self.board_y)                # batch_size x 1 x board_x x board_y
-        s = F.relu(self.bn1(self.conv1(s)))                          # batch_size x num_channels x board_x x board_y
-        s = F.relu(self.bn2(self.conv2(s)))                          # batch_size x num_channels x board_x x board_y
-        s = F.relu(self.bn3(self.conv3(s)))                          # batch_size x num_channels x (board_x) x (board_y)
+        # print("s after view: ", s.shape)
+        s = F.relu(self.bn1(self.conv1(s)))                          # batch_size x num_channels x board_x x board_y?
+        # print("s after conv1: ", s.shape)
+        s = F.relu(self.bn2(self.conv2(s)))                          # batch_size x num_channels x board_x x board_y?
+        # print("s after conv2: ", s.shape)
         s = s.view(-1, self.args.num_channels*(self.board_x-2)*(self.board_y-2))
+
 
         s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=self.args.dropout, training=self.training)  # batch_size x 1024
         s = F.dropout(F.relu(self.fc_bn2(self.fc2(s))), p=self.args.dropout, training=self.training)  # batch_size x 512

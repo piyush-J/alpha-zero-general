@@ -65,27 +65,20 @@ class MCTS():
         up the search path. In case the leaf node is a terminal state, the
         outcome is propagated up the search path. The values of Ns, Nsa, Qsa are
         updated.
-
-        NOTE: the return values are the negative of the value of the current
-        state. This is done since v is in [-1,1] and if v is the value of a
-        state for the current player, then its value is -v for the other player.
-
-        Returns:
-            v: the negative of the value of the current canonicalBoard
         """
 
         s = self.game.stringRepresentation(canonicalBoard)
 
         if s not in self.Es:
-            self.Es[s] = self.game.getGameEnded(canonicalBoard, 1)
+            self.Es[s] = self.game.getGameEnded(canonicalBoard)
         if self.Es[s] != 0:
             # terminal node
-            return -self.Es[s]
+            return self.Es[s]
 
         if s not in self.Ps:
             # leaf node
             self.Ps[s], v = self.nnet.predict(canonicalBoard)
-            valids = self.game.getValidMoves(canonicalBoard, 1)
+            valids = self.game.getValidMoves(canonicalBoard)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
             if sum_Ps_s > 0:
@@ -101,7 +94,7 @@ class MCTS():
 
             self.Vs[s] = valids
             self.Ns[s] = 0
-            return -v
+            return v
 
         valids = self.Vs[s]
         cur_best = -float('inf')
@@ -121,8 +114,8 @@ class MCTS():
                     best_act = a
 
         a = best_act
-        next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
-        next_s = self.game.getCanonicalForm(next_s, next_player)
+        next_s = self.game.getNextState(canonicalBoard, a)
+        next_s = self.game.getCanonicalForm(next_s)
 
         v = self.search(next_s)
 
@@ -135,4 +128,4 @@ class MCTS():
             self.Nsa[(s, a)] = 1
 
         self.Ns[s] += 1
-        return -v
+        return v

@@ -7,7 +7,7 @@ import numpy as np
 
 class CdrlGame(Game):
     def __init__(self, n=3):
-        self.n = n # because it is 3x3
+        self.n = n 
 
     def getInitBoard(self):
         # return initial board (numpy board)
@@ -23,7 +23,7 @@ class CdrlGame(Game):
         # return self.n*self.n + 1 # 9x9 cells + 1 pass
 
         # 2^n possible moves
-        return 2**self.n # [0,0,0], [0,0,1], .., [1,1,1]
+        return 2**self.n + 1 # [0,0,0], [0,0,1], .., [1,1,1] + 1 invalid move indicator
 
     def getNextState(self, board, action):
         # if player takes action on board, return next (board,player)
@@ -34,84 +34,44 @@ class CdrlGame(Game):
         b.execute_move(move)
         return b.pieces
 
-    def getValidMoves(self, board, player):
+    def getValidMoves(self, board):
         # return a fixed size binary vector
         valids = [0]*self.getActionSize()
         b = Board(self.n)
         b.pieces = np.copy(board)
-        legalMoves =  b.get_legal_moves(player) # doesn't depend on the player -> just output the legal moves (empty cells)
+        legalMoves =  b.get_legal_moves() 
         if len(legalMoves)==0:
             valids[-1]=1 
             return np.array(valids)
-        for x, y in legalMoves:
-            valids[self.n*x+y]=1 # convert move (2-D) to action (1-D)
+        # convert move (2-D) to action (1-D) [0,0,0] to 0, [0,0,1] to 1, .., [1,1,1] to 7, etc.
+        for x in legalMoves:
+            action = int(''.join(map(str, x)), 2)
+            valids[action]=1
         return np.array(valids)
 
-    def getGameEnded(self, board, player):
-        # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
-        # player = 1
+    def getGameEnded(self, board):
+        #TODO: check to-do in is_win() function -> change the return values to the ones you obtain from the external tool + ingest the conflict clauses from the external tool
+        # return 0 if not ended, 1 if win, -1 if lose
         b = Board(self.n)
         b.pieces = np.copy(board)
 
-        if b.is_win(player):
+        if b.is_win():
             return 1
-        if b.is_win(-player):
-            return -1
         if b.has_legal_moves():
             return 0
-        # draw has a very little value 
-        return 1e-4
+        else: # lose
+            return -1
 
-    def getCanonicalForm(self, board, player):
-        # return state if player==1, else return -state if player==-1
-        return player*board
+    def getCanonicalForm(self, board):
+        return board
 
-    def getSymmetries(self, board, pi): # to be add all the symmetrical board states and their corresponding pi to the training data
-        # mirror, rotational
-        assert(len(pi) == self.n**2+1)  # 1 for pass
-        pi_board = np.reshape(pi[:-1], (self.n, self.n))
-        l = []
-
-        for i in range(1, 5):
-            for j in [True, False]:
-                newB = np.rot90(board, i)
-                newPi = np.rot90(pi_board, i)
-                if j:
-                    newB = np.fliplr(newB)
-                    newPi = np.fliplr(newPi)
-                l += [(newB, list(newPi.ravel()) + [pi[-1]])]
-        return l
+    def getSymmetries(self, board, pi): 
+        # TODO: implement symmetries?
+        return [(board, pi)]
 
     def stringRepresentation(self, board):
-        # 8x8 numpy array (canonical board)
-        return board.tostring()
+        return '\n'.join([' '.join(map(str, board[:, col])) for col in range(board.shape[1])])
 
     @staticmethod
     def display(board):
-        n = board.shape[0]
-
-        print("   ", end="")
-        for y in range(n):
-            print (y,"", end="")
-        print("")
-        print("  ", end="")
-        for _ in range(n):
-            print ("-", end="-")
-        print("--")
-        for y in range(n):
-            print(y, "|",end="")    # print the row #
-            for x in range(n):
-                piece = board[y][x]    # get the piece to print
-                if piece == -1: print("X ",end="")
-                elif piece == 1: print("O ",end="")
-                else:
-                    if x==n:
-                        print("-",end="")
-                    else:
-                        print("- ",end="")
-            print("|")
-
-        print("  ", end="")
-        for _ in range(n):
-            print ("-", end="-")
-        print("--")
+        print(board)

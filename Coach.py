@@ -8,7 +8,7 @@ from random import shuffle
 import numpy as np
 from tqdm import tqdm
 
-from Arena import Arena
+# from Arena import Arena
 from MCTS import MCTS
 
 log = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class Coach():
 
         while True:
             episodeStep += 1
-            canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
+            canonicalBoard = self.game.getCanonicalForm(board)
             temp = int(episodeStep < self.args.tempThreshold)
 
             pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
@@ -61,9 +61,9 @@ class Coach():
                 trainExamples.append([b, self.curPlayer, p, None])
 
             action = np.random.choice(len(pi), p=pi) # choose an action based on the pi vector 
-            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
+            board = self.game.getNextState(board, action)
 
-            r = self.game.getGameEnded(board, self.curPlayer)
+            r = self.game.getGameEnded(board)
 
             if r != 0: # game ended in a win or a draw, in case of win the current player is the loser since the getNextState() function already switched the player
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
@@ -113,19 +113,48 @@ class Coach():
             self.nnet.train(trainExamples)
             nmcts = MCTS(self.game, self.nnet, self.args)
 
-            log.info('PITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)), # functions that takes board as input, return action
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game) 
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+            log.info('EVALUATING NEW MODEL')
+            new_model_rewards = self.evaluate_model(nmcts)
+            old_model_rewards = self.evaluate_model(pmcts)
 
-            log.info('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
-            if pwins + nwins == 0 or float(nwins) / (pwins + nwins) < self.args.updateThreshold:
+            log.info('NEW/OLD MODEL REWARDS : %d / %d' % (new_model_rewards, old_model_rewards))
+            if new_model_rewards <= old_model_rewards:
                 log.info('REJECTING NEW MODEL')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:
                 log.info('ACCEPTING NEW MODEL')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+
+            # log.info('PITTING AGAINST PREVIOUS VERSION')
+            # arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)), # functions that takes board as input, return action
+            #               lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game) 
+            # pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+
+            # log.info('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
+            # if pwins + nwins == 0 or float(nwins) / (pwins + nwins) < self.args.updateThreshold:
+            #     log.info('REJECTING NEW MODEL')
+            #     self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            # else:
+            #     log.info('ACCEPTING NEW MODEL')
+            #     self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
+            #     self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+
+    def evaluate_model(self, mcts):
+            total_rewards = 0
+            for _ in range(self.args.arenaCompare):
+                rewards = self.execute_single_player_episode(mcts)
+                total_rewards += rewards
+            return total_rewards
+    
+    def execute_single_player_episode(self, mcts):
+        state = self.game.getInitBoard()
+        reward = 0
+        while self.game.getGameEnded(state) == 0:
+            action = np.argmax(mcts.getActionProb(state, temp=0))
+            state = self.game.getNextState(state, action)
+        reward = self.game.getGameEnded(state)
+        return reward
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'
