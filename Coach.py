@@ -114,7 +114,9 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             log.info('EVALUATING NEW MODEL')
+            print("NMCTS: ")
             new_model_rewards = self.evaluate_model(nmcts)
+            print("PMCTS: ")
             old_model_rewards = self.evaluate_model(pmcts)
 
             log.info('NEW/OLD MODEL REWARDS : %d / %d' % (new_model_rewards, old_model_rewards))
@@ -141,11 +143,11 @@ class Coach():
             #     self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
     def evaluate_model(self, mcts):
-            total_rewards = 0
-            for _ in range(self.args.arenaCompare):
-                rewards = self.execute_single_player_episode(mcts)
-                total_rewards += rewards
-            return total_rewards
+        total_rewards = 0
+        for _ in range(self.args.arenaCompare):
+            rewards = self.execute_single_player_episode(mcts)
+            total_rewards += rewards
+        return total_rewards
     
     def execute_single_player_episode(self, mcts):
         state = self.game.getInitBoard()
@@ -154,6 +156,8 @@ class Coach():
             action = np.argmax(mcts.getActionProb(state, temp=0))
             state = self.game.getNextState(state, action)
         reward = self.game.getGameEnded(state)
+        print("State: \n", state)
+        print("Reward: ", reward)
         return reward
 
     def getCheckpointFile(self, iteration):

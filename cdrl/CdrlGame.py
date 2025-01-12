@@ -1,22 +1,26 @@
 from __future__ import print_function
 import sys
 sys.path.append('..')
-from Game import Game
 from .CdrlLogic import Board
 import numpy as np
+from pysat.formula import CNF
+from pysat.solvers import Solver
 
-class CdrlGame(Game):
-    def __init__(self, n=3):
+class CdrlGame():
+    def __init__(self, n=4, m=10, constraints_file="constraints10x4.cnf"):
         self.n = n 
+        self.m = m
+        cnf = CNF(from_file=constraints_file)
+        self.solver = Solver(bootstrap_with=cnf.clauses)
 
     def getInitBoard(self):
         # return initial board (numpy board)
-        b = Board(self.n)
+        b = Board(self.n, self.m, self.solver)
         return np.array(b.pieces)
 
     def getBoardSize(self):
         # (a,b) tuple
-        return (self.n, self.n)
+        return (self.n, self.m)
 
     def getActionSize(self):
         # return number of actions
@@ -28,7 +32,7 @@ class CdrlGame(Game):
     def getNextState(self, board, action):
         # if player takes action on board, return next (board,player)
         # action must be a valid move
-        b = Board(self.n)
+        b = Board(self.n, self.m, self.solver)
         b.pieces = np.copy(board)
         move = [int(x) for x in list(np.binary_repr(action, width=self.n))] # convert 0 to [0,0,0], 1 to [0,0,1], .., 7 to [1,1,1]
         b.execute_move(move)
@@ -37,7 +41,7 @@ class CdrlGame(Game):
     def getValidMoves(self, board):
         # return a fixed size binary vector
         valids = [0]*self.getActionSize()
-        b = Board(self.n)
+        b = Board(self.n, self.m, self.solver)
         b.pieces = np.copy(board)
         legalMoves =  b.get_legal_moves() 
         if len(legalMoves)==0:
@@ -52,7 +56,7 @@ class CdrlGame(Game):
     def getGameEnded(self, board):
         #TODO: check to-do in is_win() function -> change the return values to the ones you obtain from the external tool + ingest the conflict clauses from the external tool
         # return 0 if not ended, 1 if win, -1 if lose
-        b = Board(self.n)
+        b = Board(self.n, self.m, self.solver)
         b.pieces = np.copy(board)
 
         if b.is_win():
@@ -70,7 +74,7 @@ class CdrlGame(Game):
         return [(board, pi)]
 
     def stringRepresentation(self, board):
-        return '\n'.join([' '.join(map(str, board[:, col])) for col in range(board.shape[1])])
+        return '\n'.join([' '.join(map(str, board[row])) for row in range(board.shape[0])])
 
     @staticmethod
     def display(board):

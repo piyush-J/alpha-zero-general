@@ -7,6 +7,34 @@ import sys
 sys.path.append('..')
 from utils import *
 
+import torch.nn as nn
+
+# class CdrlNNet(nn.Module):
+#     def __init__(self, game, args):
+#         self.board_x, self.board_y = game.getBoardSize()
+#         self.action_size = game.getActionSize()
+#         self.args = args
+
+#         super(CdrlNNet, self).__init__()
+#         self.fc1 = nn.Linear(self.board_x * self.board_y, 512)
+#         self.fc_bn1 = nn.BatchNorm1d(512)
+#         self.fc2 = nn.Linear(512, 256)
+#         self.fc_bn2 = nn.BatchNorm1d(256)
+#         self.fc3 = nn.Linear(256, self.action_size)
+#         self.fc4 = nn.Linear(256, 1)
+
+#     def forward(self, x):
+#         x = x.view(-1, self.board_x * self.board_y)
+#         x = self.fc1(x)
+#         x = self.fc_bn1(x)
+#         x = nn.ReLU()(x)
+#         x = self.fc2(x)
+#         x = self.fc_bn2(x)
+#         x = nn.ReLU()(x)
+#         pi = self.fc3(x)
+#         v = self.fc4(x)
+#         return F.log_softmax(pi, dim=1), torch.tanh(v)
+
 class CdrlNNet(nn.Module):
     def __init__(self, game, args):
         # game params
@@ -39,12 +67,11 @@ class CdrlNNet(nn.Module):
         # print("s after pad: ", s.shape)
         s = s.view(-1, 1, self.board_x, self.board_y)                # batch_size x 1 x board_x x board_y
         # print("s after view: ", s.shape)
-        s = F.relu(self.bn1(self.conv1(s)))                          # batch_size x num_channels x board_x x board_y?
+        s = F.relu(self.bn1(self.conv1(s)))                          # batch_size x num_channels x board_x-1 x board_y-1
         # print("s after conv1: ", s.shape)
-        s = F.relu(self.bn2(self.conv2(s)))                          # batch_size x num_channels x board_x x board_y?
+        s = F.relu(self.bn2(self.conv2(s)))                          # batch_size x num_channels x board_x-2 x board_y-2
         # print("s after conv2: ", s.shape)
         s = s.view(-1, self.args.num_channels*(self.board_x-2)*(self.board_y-2))
-
 
         s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=self.args.dropout, training=self.training)  # batch_size x 1024
         s = F.dropout(F.relu(self.fc_bn2(self.fc2(s))), p=self.args.dropout, training=self.training)  # batch_size x 512
