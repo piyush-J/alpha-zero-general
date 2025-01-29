@@ -20,6 +20,7 @@ args = dotdict({
     'epochs': 10,
     'batch_size': 64,
     'cuda': torch.cuda.is_available(),
+    'mps': torch.backends.mps.is_available(),
     'num_channels': 512,
 })
 
@@ -32,6 +33,9 @@ class NNetWrapper(NeuralNet):
 
         if args.cuda:
             self.nnet.cuda()
+        elif args.mps:
+            print("MPS device found!")
+            self.nnet = self.nnet.to(torch.device("mps"))
 
     def train(self, examples):
         """
@@ -58,6 +62,8 @@ class NNetWrapper(NeuralNet):
                 # predict
                 if args.cuda:
                     boards, target_pis, target_vs = boards.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
+                elif args.mps:
+                    boards, target_pis, target_vs = boards.contiguous().to(torch.device("mps")), target_pis.contiguous().to(torch.device("mps")), target_vs.contiguous().to(torch.device("mps"))
 
                 # compute output
                 out_pi, out_v = self.nnet(boards)
@@ -84,7 +90,10 @@ class NNetWrapper(NeuralNet):
 
         # preparing input
         board = torch.FloatTensor(board.astype(np.float64))
-        if args.cuda: board = board.contiguous().cuda()
+        if args.cuda: 
+            board = board.contiguous().cuda()
+        elif args.mps:
+            board = board.contiguous().to(torch.device("mps"))
         board = board.view(1, self.board_x, self.board_y)
         self.nnet.eval()
         with torch.no_grad():
@@ -115,6 +124,13 @@ class NNetWrapper(NeuralNet):
         filepath = os.path.join(folder, filename)
         if not os.path.exists(filepath):
             raise Exception("No model in path {}".format(filepath))
-        map_location = None if args.cuda else 'cpu'
+
+        if args.cuda:
+            map_location = None
+        elif args.mps:
+            map_location = torch.device("mps")
+        else:
+            map_location = torch.device("cpu")
+
         checkpoint = torch.load(filepath, map_location=map_location)
         self.nnet.load_state_dict(checkpoint['state_dict'])
