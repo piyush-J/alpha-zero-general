@@ -4,8 +4,10 @@ import coloredlogs
 
 from Coach import Coach
 from tictactoe.TicTacToeGame import TicTacToeGame
-from tictactoe.keras.NNet import NNetWrapper as nn
+from tictactoe.pytorch.NNet import NNetWrapper as nn
 from utils import *
+
+import torch
 
 log = logging.getLogger(__name__)
 
@@ -13,7 +15,7 @@ coloredlogs.install(level='DEBUG')  # Change this to DEBUG to see more info.
 
 args = dotdict({
     'numIters': 10,
-    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 10,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,        #
     'updateThreshold': 0.6,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 1000,    # Number of game examples to train the neural networks.
